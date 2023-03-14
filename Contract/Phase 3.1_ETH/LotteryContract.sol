@@ -838,7 +838,7 @@ function addPartnerDetails(
     ) external  {
     
         editPartner memory pdetails=editPartner({
-            partnerId: partnerId++,
+            partnerId: partnerId,
             name:name,
             LogoHash:LogoHash,
             status:true,
