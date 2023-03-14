@@ -32,6 +32,7 @@ interface IERC20 {
         address indexed spender,
         uint256 value
     );
+    
 }
 
 library SafeMath {
@@ -107,12 +108,14 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
     bytes32 public RID;
     uint256 public lotteryId = 1;
     uint256 public ownerId = 1;
+    uint256 public partnerId = 1;
     uint256 public bregisterFee = 10;
     uint256 public lotteryCreateFee = 10;
     uint256 public transferFeePerc = 10;
     uint256 public tokenEarnPercent = 5;
     address public tokenAddress;
     uint256 internal fee;
+    // address[] partners;
     address public admin;
     bool public callresult;
 
@@ -142,6 +145,15 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         uint256 maxPrize;
         uint256 minPrize;
     }
+    struct PartnerData {
+        string name;
+        bytes32 LogoHash;
+        bool status;
+        address _partnerAddress;
+        uint256 CreatedOn;
+        uint256 Pid;
+    }
+
 
     struct TicketsData {
         address userAddress;
@@ -179,6 +191,8 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
 
     mapping(uint256 => OwnerData) public organisationbyid;
     mapping(address => OwnerData) public organisationbyaddr;
+    mapping(address=> PartnerData) public partnerbyaddr;
+    mapping(uint256 =>PartnerData) public partnerbyid;
     // Mapping lottery id => details of the lottery.
     mapping(uint256 => LotteryData) public lottery;
 
@@ -250,8 +264,14 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         uint256 date
     );
 
-    constructor(address _tokenAddress)
-        public
+    event partneradded( uint256 partnerId,string _name,
+    bytes32 _LogoHash,
+    bool status,
+    address _PartnerAddress,
+    uint256 _CreatedOn);
+
+    constructor (address _tokenAddress)
+        
         VRFConsumerBase(
             0x8C7382F9D8f56b33781fE506E897a4F1e2d17255,
             0x326C977E6efc84E512bB9C30f76E30c160eD06FB // LINK Token
@@ -770,4 +790,70 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         require(newAdmin != address(0));
         admin = newAdmin;
     }
+struct addPartner{
+    uint256 partnerId;
+    string name;
+    bytes32 LogoHash;
+    bool status;
+    address PartnerAddress;
+    uint256 CreatedOn;
 }
+struct editPartner{
+    uint256 partnerId;
+    string name;
+    bytes32 LogoHash;
+    bool status;
+    address PartnerAddress;
+    uint256 CreatedOn;
+}
+
+addPartner []partners;
+editPartner []epartners;
+
+function addPartnerDetails(
+    string memory name,
+    bytes32 LogoHash,
+    bool status,
+    address PartnerAddress,
+    uint256 CreatedOn
+    ) external  {
+        addPartner memory pdetails=addPartner({
+            partnerId: partnerId++,
+            name:name,
+            LogoHash:LogoHash,
+            status:true,
+            PartnerAddress:PartnerAddress,
+            CreatedOn:CreatedOn
+        });
+        partners.push(pdetails);
+        emit partneradded(partnerId,name, LogoHash,status, PartnerAddress, CreatedOn);
+        }
+
+    function EditPartnerDetails(
+    string memory name,
+    bytes32 LogoHash,
+    bool status,
+    address PartnerAddress,
+    uint256 CreatedOn
+    ) external  {
+    
+        editPartner memory pdetails=editPartner({
+            partnerId: partnerId++,
+            name:name,
+            LogoHash:LogoHash,
+            status:true,
+            PartnerAddress:PartnerAddress,
+            CreatedOn:CreatedOn
+        });
+        epartners.push(pdetails);
+        emit partneradded(partnerId,name, LogoHash,status, PartnerAddress, CreatedOn);
+        }
+
+    function getpartners() public view returns (addPartner [] memory) {
+    return partners;
+    }
+
+
+
+}
+
