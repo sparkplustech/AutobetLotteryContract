@@ -32,7 +32,6 @@ interface IERC20 {
         address indexed spender,
         uint256 value
     );
-    
 }
 
 library SafeMath {
@@ -115,6 +114,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
     uint256 public tokenEarnPercent = 5;
     address public tokenAddress;
     uint256 internal fee;
+    bytes32 hashresult;
     // address[] partners;
     address public admin;
     bool public callresult;
@@ -147,13 +147,12 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
     }
     struct PartnerData {
         string name;
-        bytes32 LogoHash;
+        string logoHash;
         bool status;
-        address _partnerAddress;
-        uint256 CreatedOn;
-        uint256 Pid;
+        address partnerAddress;
+        uint256 createdOn;
+        uint256 partnerId;
     }
-
 
     struct TicketsData {
         address userAddress;
@@ -191,8 +190,8 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
 
     mapping(uint256 => OwnerData) public organisationbyid;
     mapping(address => OwnerData) public organisationbyaddr;
-    mapping(address=> PartnerData) public partnerbyaddr;
-    mapping(uint256 =>PartnerData) public partnerbyid;
+    mapping(address => PartnerData) public partnerbyaddr;
+    mapping(uint256 => PartnerData) public partnerbyid;
     // Mapping lottery id => details of the lottery.
     mapping(uint256 => LotteryData) public lottery;
 
@@ -264,14 +263,16 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         uint256 date
     );
 
-    event partneradded( uint256 partnerId,string _name,
-    bytes32 _LogoHash,
-    bool status,
-    address _PartnerAddress,
-    uint256 _CreatedOn);
+    event partneradded(
+        uint256 partnerId,
+        string _name,
+        string _LogoHash,
+        bool status,
+        address _PartnerAddress,
+        uint256 _CreatedOn
+    );
 
-    constructor (address _tokenAddress)
-        
+    constructor(address _tokenAddress)
         VRFConsumerBase(
             0x8C7382F9D8f56b33781fE506E897a4F1e2d17255,
             0x326C977E6efc84E512bB9C30f76E30c160eD06FB // LINK Token
@@ -790,70 +791,74 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         require(newAdmin != address(0));
         admin = newAdmin;
     }
-struct addPartner{
-    uint256 partnerId;
-    string name;
-    bytes32 LogoHash;
-    bool status;
-    address PartnerAddress;
-    uint256 CreatedOn;
-}
-struct editPartner{
-    uint256 partnerId;
-    string name;
-    bytes32 LogoHash;
-    bool status;
-    address PartnerAddress;
-    uint256 CreatedOn;
-}
 
-addPartner []partners;
-editPartner []epartners;
+    function addPartnerDetails(
+        string memory _name,
+        string memory _logoHash,
+        bool _status,
+        address _partnerAddress,
+        uint256 _createdOn
+    ) external {
+        assert(_partnerAddress != address(0));
+        require(
+            partnerbyaddr[_partnerAddress].partnerAddress == address(0),
+            "Already registered"
+        );
 
-function addPartnerDetails(
-    string memory name,
-    bytes32 LogoHash,
-    bool status,
-    address PartnerAddress,
-    uint256 CreatedOn
-    ) external  {
-        addPartner memory pdetails=addPartner({
-            partnerId: partnerId++,
-            name:name,
-            LogoHash:LogoHash,
-            status:true,
-            PartnerAddress:PartnerAddress,
-            CreatedOn:CreatedOn
-        });
-        partners.push(pdetails);
-        emit partneradded(partnerId,name, LogoHash,status, PartnerAddress, CreatedOn);
-        }
-
-    function EditPartnerDetails(
-    string memory name,
-    bytes32 LogoHash,
-    bool status,
-    address PartnerAddress,
-    uint256 CreatedOn
-    ) external  {
-    
-        editPartner memory pdetails=editPartner({
+        partnerbyaddr[_partnerAddress] = PartnerData({
             partnerId: partnerId,
-            name:name,
-            LogoHash:LogoHash,
-            status:true,
-            PartnerAddress:PartnerAddress,
-            CreatedOn:CreatedOn
+            name: _name,
+            logoHash: _logoHash,
+            status: _status,
+            partnerAddress: _partnerAddress,
+            createdOn: _createdOn
         });
-        epartners.push(pdetails);
-        emit partneradded(partnerId,name, LogoHash,status, PartnerAddress, CreatedOn);
-        }
-
-    function getpartners() public view returns (addPartner [] memory) {
-    return partners;
+        partnerbyid[partnerId] = PartnerData({
+            partnerId: partnerId++,
+            name: _name,
+            logoHash: _logoHash,
+            status: _status,
+            partnerAddress: _partnerAddress,
+            createdOn: _createdOn
+        });
+        emit partneradded(
+            partnerId,
+            _name,
+            _logoHash,
+            _status,
+            _partnerAddress,
+            _createdOn
+        );
     }
 
+    function EditPartnerDetails(
+        string memory _name,
+        string memory _logoHash,
+        bool _status,
+        address _partnerAddress,
+        uint256 _createdOn
+    ) external {
+        assert(_partnerAddress != address(0));
+        require(
+            partnerbyaddr[_partnerAddress].partnerAddress != address(0),
+            "Already registered"
+        );
 
-
+        partnerbyaddr[_partnerAddress] = PartnerData({
+            partnerId: partnerbyaddr[_partnerAddress].partnerId,
+            name: _name,
+            logoHash: _logoHash,
+            status: _status,
+            partnerAddress: _partnerAddress,
+            createdOn: _createdOn
+        });
+        partnerbyid[partnerbyaddr[_partnerAddress].partnerId] = PartnerData({
+            partnerId: partnerbyaddr[_partnerAddress].partnerId,
+            name: _name,
+            logoHash: _logoHash,
+            status: _status,
+            partnerAddress: _partnerAddress,
+            createdOn: _createdOn
+        });
+    }
 }
-
