@@ -5,9 +5,10 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
 
 interface IERC20 {
-    function transfer(address recipient, uint256 amount)
-        external
-        returns (bool);
+    function transfer(
+        address recipient,
+        uint256 amount
+    ) external returns (bool);
 
     function approve(address spender, uint256 amount) external returns (bool);
 
@@ -17,10 +18,10 @@ interface IERC20 {
         uint256 amount
     ) external returns (bool);
 
-    function allowance(address owner, address spender)
-        external
-        view
-        returns (uint256);
+    function allowance(
+        address owner,
+        address spender
+    ) external view returns (uint256);
 
     function totalSupply() external view returns (uint256);
 
@@ -107,7 +108,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
     bytes32 public RID;
     uint256 public lotteryId = 1;
     uint256 public ownerId = 1;
-    uint256 public partnerId = 1;
+    uint256 public partnerId = 0;
     uint256 public bregisterFee = 10;
     uint256 public lotteryCreateFee = 10;
     uint256 public transferFeePerc = 10;
@@ -272,14 +273,16 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         uint256 _CreatedOn
     );
 
-    constructor(address _tokenAddress)
+    constructor(
+        address _tokenAddress
+    )
         VRFConsumerBase(
             0x8C7382F9D8f56b33781fE506E897a4F1e2d17255,
             0x326C977E6efc84E512bB9C30f76E30c160eD06FB // LINK Token
         )
     {
         keyHash = 0x6e75b569a01ef56d18cab6a8e71e6600d6ce853834d4a5748b720d06f878b3a4;
-        fee = 0.0001 * 10**18; // 0.0001 LINK
+        fee = 0.0001 * 10 ** 18; // 0.0001 LINK
         admin = msg.sender;
         tokenAddress = _tokenAddress;
         organisationbyaddr[msg.sender] = OwnerData({
@@ -295,7 +298,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
             amountEarned: 0,
             commissionEarned: 0,
             minPrize: 0,
-            maxPrize: 1 * 10**30
+            maxPrize: 1 * 10 ** 30
         });
         organisationbyid[ownerId++] = OwnerData({
             id: ownerId,
@@ -310,7 +313,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
             amountEarned: 0,
             commissionEarned: 0,
             minPrize: 0,
-            maxPrize: 1 * 10**30
+            maxPrize: 1 * 10 ** 30
         });
     }
 
@@ -330,7 +333,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         uint256 _maxPrize
     ) external payable {
         assert(_owner != address(0));
-        uint256 median = ((_minPrize.add(_maxPrize)).mul(10**18)).div(2);
+        uint256 median = ((_minPrize.add(_maxPrize)).mul(10 ** 18)).div(2);
         uint256 fees = (median * bregisterFee).div(100);
         require(
             organisationbyaddr[_owner].userAddress == address(0),
@@ -383,11 +386,11 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         LotteryType lottype
     ) public payable onlyowner {
         require(
-            organisationbyaddr[msg.sender].minPrize.mul(10**18) <= totalPrize,
+            organisationbyaddr[msg.sender].minPrize.mul(10 ** 18) <= totalPrize,
             "Not allowed winning amount"
         );
         require(
-            organisationbyaddr[msg.sender].maxPrize.mul(10**18) >= totalPrize,
+            organisationbyaddr[msg.sender].maxPrize.mul(10 ** 18) >= totalPrize,
             "Not allowed winning amount"
         );
         require(totalPrize > 0, "Low totalPrice");
@@ -474,10 +477,10 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         );
     }
 
-    function buySpinnerLottery(uint256 numbers, uint256 lotteryid)
-        public
-        payable
-    {
+    function buySpinnerLottery(
+        uint256 numbers,
+        uint256 lotteryid
+    ) public payable {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
         require(block.timestamp < LotteryDatas.endTime, "Time passed to buy");
@@ -510,14 +513,13 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         getWinners(lotteryid, numbers, msg.sender);
     }
 
-    function updateMinMax(uint256 _minPrize, uint256 _maxPrize)
-        public
-        payable
-        onlyowner
-    {
+    function updateMinMax(
+        uint256 _minPrize,
+        uint256 _maxPrize
+    ) public payable onlyowner {
         require(_maxPrize > 0, "Cant be below zero");
         require(_minPrize > 0, "Cant be below zero");
-        uint256 median = ((_minPrize.add(_maxPrize)).mul(10**18)).div(2);
+        uint256 median = ((_minPrize.add(_maxPrize)).mul(10 ** 18)).div(2);
         uint256 fees = (median * bregisterFee).div(100);
         require(fees == msg.value, "Register Fee not matching");
         uint256 ids = organisationbyaddr[msg.sender].id;
@@ -528,12 +530,9 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         organisationbyaddr[admin].commissionEarned += msg.value;
     }
 
-    function checkUpkeep(bytes calldata)
-        external
-        view
-        override
-        returns (bool upkeepNeeded, bytes memory result)
-    {
+    function checkUpkeep(
+        bytes calldata
+    ) external view override returns (bool upkeepNeeded, bytes memory result) {
         upkeepNeeded = false;
         require(!callresult, "Another Result running");
         for (uint256 i = 1; i < lotteryId; i++) {
@@ -592,10 +591,10 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         spinBuyer[_requestId] = buyer;
     }
 
-    function fulfillRandomness(bytes32 requestId, uint256 randomness)
-        internal
-        override
-    {
+    function fulfillRandomness(
+        bytes32 requestId,
+        uint256 randomness
+    ) internal override {
         randomNumber[requestId] = randomness;
         getdraw(randomness, requestIds[requestId], requestId);
     }
@@ -656,11 +655,9 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         callresult = false;
     }
 
-    function getUserlotteries(address useraddress)
-        external
-        view
-        returns (uint256[] memory lotteryids)
-    {
+    function getUserlotteries(
+        address useraddress
+    ) external view returns (uint256[] memory lotteryids) {
         uint256[] memory lotteries = new uint256[](
             userlotterydata[useraddress].length
         );
@@ -674,11 +671,9 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         tokenAddress = _tokenAddress;
     }
 
-    function getOrglotteries(address useraddress)
-        external
-        view
-        returns (uint256[] memory lotterids)
-    {
+    function getOrglotteries(
+        address useraddress
+    ) external view returns (uint256[] memory lotterids) {
         uint256[] memory lotteries = new uint256[](
             orglotterydata[useraddress].length
         );
@@ -688,7 +683,9 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         return lotteries;
     }
 
-    function getLotteryNumbers(uint256 lotteryid)
+    function getLotteryNumbers(
+        uint256 lotteryid
+    )
         public
         view
         returns (uint256[] memory tickets, address[] memory useraddress)
@@ -804,7 +801,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
             partnerbyaddr[_partnerAddress].partnerAddress == address(0),
             "Already registered"
         );
-
+        partnerId++;
         partnerbyaddr[_partnerAddress] = PartnerData({
             partnerId: partnerId,
             name: _name,
@@ -814,7 +811,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
             createdOn: _createdOn
         });
         partnerbyid[partnerId] = PartnerData({
-            partnerId: partnerId++,
+            partnerId: partnerId,
             name: _name,
             logoHash: _logoHash,
             status: _status,
@@ -841,9 +838,12 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         assert(_partnerAddress != address(0));
         require(
             partnerbyaddr[_partnerAddress].partnerAddress != address(0),
-            "Already registered"
+            "Not Already registered"
         );
-
+        require(
+            partnerbyaddr[_partnerAddress].partnerAddress == _partnerAddress,
+            "Wrong address to update"
+        );
         partnerbyaddr[_partnerAddress] = PartnerData({
             partnerId: partnerbyaddr[_partnerAddress].partnerId,
             name: _name,
