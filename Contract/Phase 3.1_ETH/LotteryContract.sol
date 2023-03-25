@@ -112,6 +112,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
     uint256 public bregisterFee = 10;
     uint256 public lotteryCreateFee = 10;
     uint256 public transferFeePerc = 10;
+    uint256 public partnerRewardPerc = 10;
     uint256 public tokenEarnPercent = 5;
     address public tokenAddress;
     uint256 internal fee;
@@ -123,11 +124,12 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
     enum LotteryState {
         open,
         close,
-        resultdone
+        resultdone,
+        rollover
     }
 
     enum LotteryType {
-        spinner,
+        revolver,
         pick
     }
 
@@ -408,6 +410,10 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         require(picknumbers <= capacity, "capacity is less");
         require(startTime >= block.timestamp, "Start time passed");
         require(startTime < endtime, "End time less than start time");
+        require(
+            rolloverperct <= 50,
+            "Rollover percentage cann't be more than 50"
+        );
         lottery[lotteryId].partnerId = partner;
         lottery[lotteryId].lotteryId = lotteryId;
         lottery[lotteryId].rolloverperct = rolloverperct;
@@ -615,6 +621,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         bytes32 requestId
     ) internal {
         LotteryData storage LotteryDatas = lottery[lotteryid];
+        LotteryDate storage LotteryDates = lotteryDates[lotteryid];
         if (LotteryDatas.lotteryType == LotteryType.pick) {
             num = num.mod(LotteryDatas.Tickets.length);
             LotteryDatas.status = LotteryState.resultdone;
@@ -643,6 +650,41 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
                 LotteryDatas.status = LotteryState.resultdone;
                 LotteryDatas.lotteryWinner = spinBuyer[requestId];
                 paywinner(spinBuyer[requestId], lotteryid, requestId);
+            } else {
+                LotteryDatas.status = LotteryState.rollover;
+                uint256 newTotalPrize = LotteryDatas
+                    .totalPrize
+                    .mul(LotteryDatas.rolloverperct)
+                    .div(100) -
+                    LotteryDatas.totalPrize.mul(lotteryCreateFee).div(100);
+                lottery[lotteryId].partnerId = LotteryDatas.partnerId;
+                lottery[lotteryId].lotteryId = lotteryId;
+                lottery[lotteryId].entryFee = LotteryDatas.entryFee;
+                lottery[lotteryId].pickNumbers = LotteryDatas.pickNumbers;
+                lottery[lotteryId].totalPrize = newTotalPrize;
+                lotteryDates[lotteryId].startTime = LotteryDates.startTime;
+                lottery[lotteryId].rolloverperct = LotteryDatas.rolloverperct;
+                lotteryDates[lotteryId].endTime = LotteryDates.endTime;
+                lotteryDates[lotteryId].lotteryId = lotteryId;
+                lotteryDates[lotteryId].drawTime = LotteryDates.drawTime;
+                lottery[lotteryId].capacity = LotteryDatas.capacity;
+                lottery[lotteryId].status = LotteryState.open;
+                lottery[lotteryId].ownerAddress = LotteryDatas.ownerAddress;
+                lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
+                lottery[lotteryId].minPlayers = LotteryDatas.minPlayers;
+                orglotterydata[LotteryDatas.ownerAddress].push(lotteryId);
+                organisationbyaddr[admin].commissionEarned += newTotalPrize;
+                emit CreatedLottery(
+                    lotteryId,
+                    LotteryDatas.entryFee,
+                    LotteryDatas.pickNumbers,
+                    newTotalPrize,
+                    LotteryDatas.capacity,
+                    LotteryDatas.ownerAddress,
+                    LotteryDates.startTime,
+                    organisationbyaddr[LotteryDatas.ownerAddress].id
+                );
+                lotteryId++;
             }
         }
     }
@@ -660,6 +702,11 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
             uint256 finalAmount = prizeAmt.sub(subtAmt);
             payable(useraddressdata).transfer(finalAmount);
             organisationbyaddr[admin].commissionEarned += subtAmt;
+            if (LotteryDatas.lotteryType == LotteryType.revolver) {
+                uint256 partnerpay = prizeAmt.mul(partnerRewardPerc).div(100);
+                payable(partnerbyid[LotteryDatas.partnerId].partnerAddress)
+                    .transfer(partnerpay);
+            }
             emit WinnerPaid(useraddressdata, lotteryid, finalAmount);
         }
         callresult = false;
@@ -756,11 +803,13 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
     function updateFee(
         uint256 _lotteryCreateFee,
         uint256 _transferFeePerc,
-        uint256 _tokenEarnPercent
+        uint256 _tokenEarnPercent,
+        uint256 _partnerRewardPerc
     ) external onlyAdmin {
         lotteryCreateFee = _lotteryCreateFee;
         transferFeePerc = _transferFeePerc;
         tokenEarnPercent = _tokenEarnPercent;
+        partnerRewardPerc = _partnerRewardPerc;
     }
 
     function contractBalance()
