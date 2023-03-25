@@ -5,10 +5,9 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
 
 interface IERC20 {
-    function transfer(
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
+    function transfer(address recipient, uint256 amount)
+        external
+        returns (bool);
 
     function approve(address spender, uint256 amount) external returns (bool);
 
@@ -18,10 +17,10 @@ interface IERC20 {
         uint256 amount
     ) external returns (bool);
 
-    function allowance(
-        address owner,
-        address spender
-    ) external view returns (uint256);
+    function allowance(address owner, address spender)
+        external
+        view
+        returns (uint256);
 
     function totalSupply() external view returns (uint256);
 
@@ -35,75 +34,7 @@ interface IERC20 {
     );
 }
 
-library SafeMath {
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a, "SafeMath: addition overflow");
-
-        return c;
-    }
-
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        return sub(a, b, "SafeMath: subtraction overflow");
-    }
-
-    function sub(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        require(b <= a, errorMessage);
-        uint256 c = a - b;
-
-        return c;
-    }
-
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
-        // benefit is lost if 'b' is also tested.
-        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
-        if (a == 0) {
-            return 0;
-        }
-
-        uint256 c = a * b;
-        require(c / a == b, "SafeMath: multiplication overflow");
-
-        return c;
-    }
-
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        return div(a, b, "SafeMath: division by zero");
-    }
-
-    function div(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        require(b > 0, errorMessage);
-        uint256 c = a / b;
-        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-
-        return c;
-    }
-
-    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
-        return mod(a, b, "SafeMath: modulo by zero");
-    }
-
-    function mod(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        require(b != 0, errorMessage);
-        return a % b;
-    }
-}
-
 contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
-    using SafeMath for uint256;
     bytes32 internal keyHash;
     bytes32 public RID;
     uint256 public lotteryId = 1;
@@ -116,7 +47,6 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
     address public tokenAddress;
     uint256 internal fee;
     bytes32 hashresult;
-    // address[] partners;
     address public admin;
     bool public callresult;
 
@@ -147,7 +77,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         uint256 minPrize;
     }
     struct PartnerData {
-        string name;
+        string partnerName;
         string logoHash;
         bool status;
         address partnerAddress;
@@ -163,6 +93,8 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
 
     struct LotteryData {
         uint256 lotteryId;
+        string partnerName;
+        uint256 rollover;
         uint256 pickNumbers; //ticket numbers need to be selected
         uint256 startTime; // Start time of Lottery.
         uint256 endTime; // End time of lottery.
@@ -226,6 +158,8 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
 
     event CreatedLottery(
         uint256 indexed lotteryId,
+        string partnerName,
+        uint256 rollover,
         uint256 entryfee,
         uint256 picknumbers,
         uint256 totalPrize,
@@ -273,16 +207,14 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         uint256 _CreatedOn
     );
 
-    constructor(
-        address _tokenAddress
-    )
+    constructor(address _tokenAddress)
         VRFConsumerBase(
             0x8C7382F9D8f56b33781fE506E897a4F1e2d17255,
             0x326C977E6efc84E512bB9C30f76E30c160eD06FB // LINK Token
         )
     {
         keyHash = 0x6e75b569a01ef56d18cab6a8e71e6600d6ce853834d4a5748b720d06f878b3a4;
-        fee = 0.0001 * 10 ** 18; // 0.0001 LINK
+        fee = 0.0001 * 10**18; // 0.0001 LINK
         admin = msg.sender;
         tokenAddress = _tokenAddress;
         organisationbyaddr[msg.sender] = OwnerData({
@@ -298,7 +230,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
             amountEarned: 0,
             commissionEarned: 0,
             minPrize: 0,
-            maxPrize: 1 * 10 ** 30
+            maxPrize: 1 * 10**30
         });
         organisationbyid[ownerId++] = OwnerData({
             id: ownerId,
@@ -313,7 +245,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
             amountEarned: 0,
             commissionEarned: 0,
             minPrize: 0,
-            maxPrize: 1 * 10 ** 30
+            maxPrize: 1 * 10**30
         });
     }
 
@@ -333,8 +265,8 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         uint256 _maxPrize
     ) external payable {
         assert(_owner != address(0));
-        uint256 median = ((_minPrize.add(_maxPrize)).mul(10 ** 18)).div(2);
-        uint256 fees = (median * bregisterFee).div(100);
+        uint256 median = ((_minPrize + (_maxPrize))*(10**18))/(2);
+        uint256 fees = (median * bregisterFee)/(100);
         require(
             organisationbyaddr[_owner].userAddress == address(0),
             "Already registered"
@@ -376,67 +308,76 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
 
     function createLottery(
         string memory _name,
-        uint256 entryfee,
-        uint256 picknumbers,
-        uint256 totalPrize,
-        uint256 startTime,
-        uint256 endtime,
-        uint256 drawtime,
-        uint256 capacity,
+        string memory _partnerName,
+        uint256 _rollover,
+        uint256 _entryfee,
+        uint256 _picknumbers,
+        uint256 _totalPrize,
+        uint256 _startTime,
+        uint256 _endtime,
+        uint256 _drawtime,
+        uint256 _capacity,
         LotteryType lottype
     ) public payable onlyowner {
         require(
-            organisationbyaddr[msg.sender].minPrize.mul(10 ** 18) <= totalPrize,
+            organisationbyaddr[msg.sender].minPrize*(10**18) <=
+                _totalPrize,
             "Not allowed winning amount"
         );
         require(
-            organisationbyaddr[msg.sender].maxPrize.mul(10 ** 18) >= totalPrize,
+            organisationbyaddr[msg.sender].maxPrize*(10**18) >=
+                _totalPrize,
             "Not allowed winning amount"
         );
-        require(totalPrize > 0, "Low totalPrice");
+        require(_totalPrize > 0, "Low totalPrice");
         require(
-            totalPrize.add((totalPrize * lotteryCreateFee).div(100)) ==
+            _totalPrize + ((_totalPrize * lotteryCreateFee)/(100)) ==
                 msg.value,
             "Amount not matching"
         );
-        require(picknumbers <= capacity, "capacity is less");
-        require(startTime >= block.timestamp, "Start time passed");
-        require(startTime < endtime, "End time less than start time");
+        require(_picknumbers <= _capacity, "capacity is less");
+        require(_startTime >= block.timestamp, "Start time passed");
+        require(_startTime < _endtime, "End time less than start time");
         lottery[lotteryId].name = _name;
+        lottery[lotteryId].partnerName = _partnerName;
+        lottery[lotteryId].rollover =_rollover;
         lottery[lotteryId].lotteryId = lotteryId;
-        lottery[lotteryId].entryFee = entryfee;
-        lottery[lotteryId].pickNumbers = picknumbers;
-        lottery[lotteryId].totalPrize = totalPrize;
-        lottery[lotteryId].startTime = startTime;
-        lottery[lotteryId].endTime = endtime;
-        lottery[lotteryId].capacity = capacity;
+        lottery[lotteryId].entryFee = _entryfee;
+        lottery[lotteryId].pickNumbers = _picknumbers;
+        lottery[lotteryId].totalPrize =_totalPrize;
+        lottery[lotteryId].startTime = _startTime;
+        lottery[lotteryId].endTime = _endtime;
+        lottery[lotteryId].capacity = _capacity;
         lottery[lotteryId].status = LotteryState.open;
-        lottery[lotteryId].drawTime = drawtime;
+        lottery[lotteryId].drawTime = _drawtime;
         lottery[lotteryId].ownerAddress = msg.sender;
         lottery[lotteryId].lotteryType = lottype;
         lottery[lotteryId].minPlayers =
-            (totalPrize).div(entryfee) +
-            (totalPrize).mul(10).div(entryfee).div(100);
+            (_totalPrize)/(_entryfee) +
+            (_totalPrize)*(10)/(_entryfee)/(100);
         orglotterydata[msg.sender].push(lotteryId);
-        organisationbyaddr[admin].commissionEarned += (totalPrize *
-            lotteryCreateFee).div(100);
+        organisationbyaddr[admin].commissionEarned += (_totalPrize *
+            lotteryCreateFee)/(100);
         if (organisationbyaddr[msg.sender].referee != address(0)) {
             refereeEarned[organisationbyaddr[msg.sender].referee] =
                 refereeEarned[organisationbyaddr[msg.sender].referee] +
-                totalPrize.div(100);
+                _totalPrize/(100);
         }
         emit CreatedLottery(
             lotteryId,
-            entryfee,
-            picknumbers,
-            totalPrize,
-            capacity,
+            _partnerName,
+            _rollover,
+            _entryfee,
+            _picknumbers,
+            _totalPrize,
+            _capacity,
             msg.sender,
-            startTime,
+            _startTime,
             organisationbyaddr[msg.sender].id
         );
         lotteryId++;
     }
+
 
     function buyNormalLottery(
         uint256[] memory numbers,
@@ -465,7 +406,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         userlotterydata[msg.sender].push(lotteryid);
         lotterySales[lotteryid]++;
         tokenearned[msg.sender] += (
-            (LotteryDatas.entryFee * tokenEarnPercent).div(100)
+            (LotteryDatas.entryFee * tokenEarnPercent)/(100)
         );
         emit LotteryBought(
             numbers,
@@ -477,10 +418,10 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         );
     }
 
-    function buySpinnerLottery(
-        uint256 numbers,
-        uint256 lotteryid
-    ) public payable {
+    function buySpinnerLottery(uint256 numbers, uint256 lotteryid)
+        public
+        payable
+    {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
         require(block.timestamp < LotteryDatas.endTime, "Time passed to buy");
@@ -499,9 +440,8 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         organisationbyaddr[LotteryDatas.ownerAddress].amountEarned += msg.value;
         userlotterydata[msg.sender].push(lotteryid);
         lotterySales[lotteryid]++;
-        tokenearned[msg.sender] += (
-            (LotteryDatas.entryFee * tokenEarnPercent).div(100)
-        );
+        tokenearned[msg.sender] += ((LotteryDatas.entryFee * tokenEarnPercent) /
+            (100));
         emit LotteryBought(
             numbarray,
             lotteryid,
@@ -513,14 +453,15 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         getWinners(lotteryid, numbers, msg.sender);
     }
 
-    function updateMinMax(
-        uint256 _minPrize,
-        uint256 _maxPrize
-    ) public payable onlyowner {
+    function updateMinMax(uint256 _minPrize, uint256 _maxPrize)
+        public
+        payable
+        onlyowner
+    {
         require(_maxPrize > 0, "Cant be below zero");
         require(_minPrize > 0, "Cant be below zero");
-        uint256 median = ((_minPrize.add(_maxPrize)).mul(10 ** 18)).div(2);
-        uint256 fees = (median * bregisterFee).div(100);
+        uint256 median = ((_minPrize + (_maxPrize)) * (10**18)) / (2);
+        uint256 fees = (median * bregisterFee) / (100);
         require(fees == msg.value, "Register Fee not matching");
         uint256 ids = organisationbyaddr[msg.sender].id;
         organisationbyaddr[msg.sender].minPrize = _minPrize;
@@ -530,9 +471,12 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         organisationbyaddr[admin].commissionEarned += msg.value;
     }
 
-    function checkUpkeep(
-        bytes calldata
-    ) external view override returns (bool upkeepNeeded, bytes memory result) {
+    function checkUpkeep(bytes calldata)
+        external
+        view
+        override
+        returns (bool upkeepNeeded, bytes memory result)
+    {
         upkeepNeeded = false;
         require(!callresult, "Another Result running");
         for (uint256 i = 1; i < lotteryId; i++) {
@@ -591,10 +535,10 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         spinBuyer[_requestId] = buyer;
     }
 
-    function fulfillRandomness(
-        bytes32 requestId,
-        uint256 randomness
-    ) internal override {
+    function fulfillRandomness(bytes32 requestId, uint256 randomness)
+        internal
+        override
+    {
         randomNumber[requestId] = randomness;
         getdraw(randomness, requestIds[requestId], requestId);
     }
@@ -606,7 +550,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
     ) internal {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         if (LotteryDatas.lotteryType == LotteryType.pick) {
-            num = num.mod(LotteryDatas.Tickets.length);
+            num = num % (LotteryDatas.Tickets.length);
             LotteryDatas.status = LotteryState.resultdone;
             LotteryDatas.lotteryWinner = LotteryDatas.Tickets[num].userAddress;
             emit LotteryResult(
@@ -620,7 +564,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
                 requestId
             );
         } else {
-            num = num.mod(LotteryDatas.capacity);
+            num = num % (LotteryDatas.capacity);
             LotteryDatas.lotteryWinner = spinBuyer[requestId];
             emit SpinLotteryResult(
                 spinBuyer[requestId],
@@ -646,8 +590,8 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         if (useraddressdata != address(0)) {
             uint256 prizeAmt = LotteryDatas.totalPrize;
-            uint256 subtAmt = prizeAmt.mul(transferFeePerc).div(100);
-            uint256 finalAmount = prizeAmt.sub(subtAmt);
+            uint256 subtAmt = (prizeAmt * (transferFeePerc)) / (100);
+            uint256 finalAmount = prizeAmt - (subtAmt);
             payable(useraddressdata).transfer(finalAmount);
             organisationbyaddr[admin].commissionEarned += subtAmt;
             emit WinnerPaid(useraddressdata, lotteryid, finalAmount);
@@ -655,9 +599,11 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         callresult = false;
     }
 
-    function getUserlotteries(
-        address useraddress
-    ) external view returns (uint256[] memory lotteryids) {
+    function getUserlotteries(address useraddress)
+        external
+        view
+        returns (uint256[] memory lotteryids)
+    {
         uint256[] memory lotteries = new uint256[](
             userlotterydata[useraddress].length
         );
@@ -671,9 +617,11 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         tokenAddress = _tokenAddress;
     }
 
-    function getOrglotteries(
-        address useraddress
-    ) external view returns (uint256[] memory lotterids) {
+    function getOrglotteries(address useraddress)
+        external
+        view
+        returns (uint256[] memory lotterids)
+    {
         uint256[] memory lotteries = new uint256[](
             orglotterydata[useraddress].length
         );
@@ -683,9 +631,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         return lotteries;
     }
 
-    function getLotteryNumbers(
-        uint256 lotteryid
-    )
+    function getLotteryNumbers(uint256 lotteryid)
         public
         view
         returns (uint256[] memory tickets, address[] memory useraddress)
@@ -712,8 +658,8 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
 
     function withdrawcommission() external payable {
         uint256 amountEarned = organisationbyaddr[msg.sender].amountEarned;
-        uint256 subtAmt = amountEarned.mul(transferFeePerc).div(100);
-        uint256 finalAmount = amountEarned.sub(subtAmt);
+        uint256 subtAmt = amountEarned*(transferFeePerc)/(100);
+        uint256 finalAmount = amountEarned-(subtAmt);
         payable((msg.sender)).transfer(finalAmount);
         organisationbyaddr[admin].commissionEarned += subtAmt;
         organisationbyaddr[msg.sender].commissionEarned += finalAmount;
@@ -789,76 +735,112 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         admin = newAdmin;
     }
 
+    struct Addpart {
+        string _partnerName;
+        string _logoHash;
+        bool _status;
+        address _partnerAddress;
+        uint256 _createdOn;
+    }
+    Addpart addpart;
+
+    struct Editpart {
+        string _partnerName;
+        string _logoHash;
+        bool _status;
+        address _partnerAddress;
+        uint256 _createdOn;
+    }
+    Editpart editpart;
+
     function addPartnerDetails(
-        string memory _name,
-        string memory _logoHash,
-        bool _status,
-        address _partnerAddress,
-        uint256 _createdOn
+        string memory partnerName,
+        string memory logoHash,
+        bool status,
+        address partnerAddress,
+        uint256 createdOn
     ) external {
-        assert(_partnerAddress != address(0));
+        addpart = Addpart(
+            partnerName,
+            logoHash,
+            status,
+            partnerAddress,
+            createdOn
+        );
+        assert(addpart._partnerAddress != address(0));
         require(
-            partnerbyaddr[_partnerAddress].partnerAddress == address(0),
+            partnerbyaddr[addpart._partnerAddress].partnerAddress == address(0),
             "Already registered"
         );
         partnerId++;
-        partnerbyaddr[_partnerAddress] = PartnerData({
+        partnerbyaddr[addpart._partnerAddress] = PartnerData({
             partnerId: partnerId,
-            name: _name,
-            logoHash: _logoHash,
-            status: _status,
-            partnerAddress: _partnerAddress,
-            createdOn: _createdOn
+            partnerName: addpart._partnerName,
+            logoHash: addpart._logoHash,
+            status: addpart._status,
+            partnerAddress: addpart._partnerAddress,
+            createdOn: addpart._createdOn
         });
         partnerbyid[partnerId] = PartnerData({
             partnerId: partnerId,
-            name: _name,
-            logoHash: _logoHash,
-            status: _status,
-            partnerAddress: _partnerAddress,
-            createdOn: _createdOn
+            partnerName: addpart._partnerName,
+            logoHash: addpart._logoHash,
+            status: addpart._status,
+            partnerAddress: addpart._partnerAddress,
+            createdOn: addpart._createdOn
         });
         emit partneradded(
             partnerId,
-            _name,
-            _logoHash,
-            _status,
-            _partnerAddress,
-            _createdOn
+            addpart._partnerName,
+            addpart._logoHash,
+            addpart._status,
+            addpart._partnerAddress,
+            addpart._createdOn
         );
     }
 
     function EditPartnerDetails(
-        string memory _name,
-        string memory _logoHash,
-        bool _status,
-        address _partnerAddress,
-        uint256 _createdOn
+        string memory partnerName,
+        string memory logoHash,
+        bool status,
+        address partnerAddress,
+        uint256 createdOn
     ) external {
-        assert(_partnerAddress != address(0));
+        editpart = Editpart(
+            partnerName,
+            logoHash,
+            status,
+            partnerAddress,
+            createdOn
+        );
+        assert(editpart._partnerAddress != address(0));
         require(
-            partnerbyaddr[_partnerAddress].partnerAddress != address(0),
+            partnerbyaddr[editpart._partnerAddress].partnerAddress !=
+                address(0),
             "Not Already registered"
         );
         require(
-            partnerbyaddr[_partnerAddress].partnerAddress == _partnerAddress,
+            partnerbyaddr[editpart._partnerAddress].partnerAddress ==
+                editpart._partnerAddress,
             "Wrong address to update"
         );
-        partnerbyaddr[_partnerAddress] = PartnerData({
-            partnerId: partnerbyaddr[_partnerAddress].partnerId,
-            name: _name,
-            logoHash: _logoHash,
-            status: _status,
-            partnerAddress: _partnerAddress,
-            createdOn: _createdOn
+        partnerbyaddr[editpart._partnerAddress] = PartnerData({
+            partnerId: partnerbyaddr[editpart._partnerAddress].partnerId,
+            partnerName: editpart._partnerName,
+            logoHash: editpart._logoHash,
+            status: editpart._status,
+            partnerAddress: editpart._partnerAddress,
+            createdOn: editpart._createdOn
         });
-        partnerbyid[partnerbyaddr[_partnerAddress].partnerId] = PartnerData({
-            partnerId: partnerbyaddr[_partnerAddress].partnerId,
-            name: _name,
-            logoHash: _logoHash,
-            status: _status,
-            partnerAddress: _partnerAddress,
-            createdOn: _createdOn
+        partnerbyid[
+            partnerbyaddr[editpart._partnerAddress].partnerId
+        ] = PartnerData({
+            partnerId: partnerbyaddr[editpart._partnerAddress].partnerId,
+            partnerName: editpart._partnerName,
+            logoHash: editpart._logoHash,
+            status: editpart._status,
+            partnerAddress: editpart._partnerAddress,
+            createdOn: editpart._createdOn
         });
     }
 }
