@@ -164,7 +164,6 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
     }
 
     struct LotteryData {
-        string lotteryName;
         uint256 lotteryId;
         uint256 pickNumbers; //ticket numbers need to be selected
         uint256 capacity; // Total size of lottery.
@@ -383,7 +382,6 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
     }
 
     function createLottery(
-        string memory lotteryName,
         uint256 entryfee,
         uint256 picknumbers,
         uint256 totalPrize,
@@ -414,10 +412,9 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         require(startTime < endtime, "End time less than start time");
         require(
             rolloverperct <= 50,
-            "Rollover percentage cann't be more than 50"
+            "Rollover percentage can't be more than 50"
         );
         lottery[lotteryId].partnerId = partner;
-        lottery[lotteryId].lotteryName = lotteryName;
         lottery[lotteryId].lotteryId = lotteryId;
         lottery[lotteryId].rolloverperct = rolloverperct;
         lottery[lotteryId].entryFee = entryfee;
@@ -662,10 +659,6 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
                     LotteryDatas.totalPrize.mul(lotteryCreateFee).div(100);
                 lottery[lotteryId].partnerId = LotteryDatas.partnerId;
                 lottery[lotteryId].lotteryId = lotteryId;
-                lottery[lotteryId].lotteryName = string.concat(
-                    LotteryDatas.lotteryName,
-                    "rollover"
-                );
                 lottery[lotteryId].entryFee = LotteryDatas.entryFee;
                 lottery[lotteryId].pickNumbers = LotteryDatas.pickNumbers;
                 lottery[lotteryId].totalPrize = newTotalPrize;
