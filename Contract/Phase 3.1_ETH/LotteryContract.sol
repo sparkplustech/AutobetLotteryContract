@@ -217,6 +217,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
     mapping(bytes32 => address) public spinBuyer;
 
     mapping(address => uint256[]) private userlotterydata;
+     mapping(address => uint256[]) private partnerlotterydata;
 
     mapping(address => uint256[]) private orglotterydata;
 
@@ -439,6 +440,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
                 refereeEarned[organisationbyaddr[msg.sender].referee] +
                 totalPrize.div(100);
         }
+        partnerlotterydata[partnerbyid[partner].partnerAddress].push(lotteryId);
         emit CreatedLottery(
             lotteryId,
             entryfee,
@@ -724,6 +726,18 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         return lotteries;
     }
 
+    function getPartnerlotteries(
+        address partneraddress
+    ) external view returns (uint256[] memory lotteryids) {
+        uint256[] memory lotteries = new uint256[](
+            partnerlotterydata[partneraddress].length
+        );
+        for (uint256 i = 0; i < partnerlotterydata[partneraddress].length; i++) {
+            lotteries[i] = partnerlotterydata[partneraddress][i];
+        }
+        return lotteries;
+    }
+
     function setTokenAddress(address _tokenAddress) external onlyAdmin {
         tokenAddress = _tokenAddress;
     }
@@ -847,6 +861,7 @@ contract Autobet is VRFConsumerBase, AutomationCompatibleInterface {
         require(newAdmin != address(0));
         admin = newAdmin;
     }
+    
 
     function addPartnerDetails(
         string memory _name,
