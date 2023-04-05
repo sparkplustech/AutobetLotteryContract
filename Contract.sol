@@ -1,6 +1,8 @@
 pragma solidity ^0.8.7;
 
-import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
+import "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
+import "@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
+
 
 interface KeeperCompatibleInterface {
     function checkUpkeep(bytes calldata) external  returns (bool upkeepNeeded, bytes memory ) ;
@@ -18,66 +20,10 @@ interface IERC20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
-library SafeMath {
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a, "SafeMath: addition overflow");
 
-        return c;
-    }
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        return sub(a, b, "SafeMath: subtraction overflow");
-    }
-
-    function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        require(b <= a, errorMessage);
-        uint256 c = a - b;
-
-        return c;
-    }
-
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
-        // benefit is lost if 'b' is also tested.
-        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
-        if (a == 0) {
-            return 0;
-        }
-
-        uint256 c = a * b;
-        require(c / a == b, "SafeMath: multiplication overflow");
-
-        return c;
-    }
-
-    
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        return div(a, b, "SafeMath: division by zero");
-    }
- 
-    function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        require(b > 0, errorMessage);
-        uint256 c = a / b;
-        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-
-        return c;
-    }
-
-    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
-        return mod(a, b, "SafeMath: modulo by zero");
-    }
-
-  
-    function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        require(b != 0, errorMessage);
-        return a % b;
-    }
-}
-
-contract Autobet is VRFConsumerBase, KeeperCompatibleInterface{
-    using SafeMath for uint256;
+contract Autobet is VRFV2WrapperConsumerBase, KeeperCompatibleInterface{
     bytes32 internal keyHash;
-    bytes32 public RID ;
+    uint public RID ;
     address public admin;
     uint256 public lotteryId = 1;
     uint256 public ownerId = 1;
@@ -88,8 +34,13 @@ contract Autobet is VRFConsumerBase, KeeperCompatibleInterface{
     uint256 public tokenEarnPercent = 5;
     bool public callresult;
     address public tokenAddress;
-    
-    
+     uint32 callbackGasLimit = 100000;
+
+    // The default is 3, but you can set this higher.
+    uint16 requestConfirmations = 3;
+
+        uint32 numWords = 2;
+
     enum LotteryState {
         open,
         close,
@@ -157,12 +108,17 @@ contract Autobet is VRFConsumerBase, KeeperCompatibleInterface{
     mapping(address => uint256) public tokenearned;
     mapping(address => uint256) public tokenredeemed;
     mapping (uint256 => uint256) public lotterySales;
+    // Address LINK - hardcoded for Sepolia
+    address linkAddress = 0x779877A7B0D9E8603169DdbD7836e478b4624789;
+
+    // address WRAPPER - hardcoded for Sepolia
+    address wrapperAddress = 0xab18414CD93297B0d12ac29E63Ca20f515b3DB46;
 
 
-    mapping (bytes32 => uint256) public requestIds;
-    mapping (bytes32 => uint256) public randomNumber;
-    mapping (bytes32 => uint256) public spinNumbers;
-    mapping (bytes32 => address) public spinBuyer;
+    mapping (uint => uint256) public requestIds;
+    mapping (uint => uint256) public randomNumber;
+    mapping (uint => uint256) public spinNumbers;
+    mapping (uint => address) public spinBuyer;
 
     mapping(address => uint256[]) private userlotterydata;
 
@@ -171,6 +127,7 @@ contract Autobet is VRFConsumerBase, KeeperCompatibleInterface{
     // Mapping of lottery id => user address => no of tickets
     mapping (uint256 => mapping (address => uint256)) public lotteryTickets;
     mapping (string =>  bool) public TicketsList;
+    event RequestSent(uint256 requestId, uint32 numWords);
 
     event CreatedLottery(uint256 indexed lotteryId,uint256 entryfee,uint256 picknumbers,uint256 totalPrize, uint256 capacity, address indexed owner,uint256 startTime,uint256 indexed ownerid);
 
@@ -183,11 +140,9 @@ contract Autobet is VRFConsumerBase, KeeperCompatibleInterface{
     event SpinLotteryResult(address indexed useraddressdata, uint256 indexed lotteryId,uint256 selectedNum, uint256 winnerNum,uint256 date);
 
     constructor(address _tokenAddress)
-        VRFConsumerBase(
-            0x8C7382F9D8f56b33781fE506E897a4F1e2d17255,
-            0x326C977E6efc84E512bB9C30f76E30c160eD06FB // LINK Token
-        ) public
+        VRFV2WrapperConsumerBase(linkAddress, wrapperAddress)
     {
+
         keyHash = 0x6e75b569a01ef56d18cab6a8e71e6600d6ce853834d4a5748b720d06f878b3a4;
         fee = 	0.0001 * 10 ** 18; // 0.1 LINK
         admin = msg.sender;
@@ -253,7 +208,7 @@ contract Autobet is VRFConsumerBase, KeeperCompatibleInterface{
         organisationbyaddr[LotteryDatas.ownerAddress].amountEarned += msg.value;
         userlotterydata[msg.sender].push(lotteryid);
         lotterySales[lotteryid]++;
-        tokenearned[msg.sender] +=  ((LotteryDatas.entryFee * tokenEarnPercent).div(100)) ;
+        tokenearned[msg.sender] +=  (LotteryDatas.entryFee * tokenEarnPercent)/100 ;
         emit LotteryBought(numbers,lotteryid,block.timestamp,msg.sender,LotteryDatas.drawTime,LotteryDatas.entryFee);
     }
     
@@ -270,7 +225,7 @@ contract Autobet is VRFConsumerBase, KeeperCompatibleInterface{
         organisationbyaddr[LotteryDatas.ownerAddress].amountEarned += msg.value;
         userlotterydata[msg.sender].push(lotteryid);
         lotterySales[lotteryid]++;
-        tokenearned[msg.sender] +=  ((LotteryDatas.entryFee * tokenEarnPercent).div(100)) ;
+        tokenearned[msg.sender] +=  (LotteryDatas.entryFee * tokenEarnPercent)/100 ;
         emit LotteryBought(numbarray,lotteryid,block.timestamp,msg.sender,LotteryDatas.drawTime,LotteryDatas.entryFee);
         getWinners(lotteryid,numbers,msg.sender);
     }
@@ -315,36 +270,46 @@ contract Autobet is VRFConsumerBase, KeeperCompatibleInterface{
 
     function getWinners(uint256 i) internal  {
         require(LINK.balanceOf(address(this)) > fee, "Not enough LINK - fill contract with faucet");
-        bytes32 _requestId = requestRandomness(keyHash, fee);
+        uint256 _requestId = requestRandomness(
+            callbackGasLimit,
+            requestConfirmations,
+            numWords
+        );
+                emit RequestSent(_requestId, numWords);
+
         RID = _requestId;
         requestIds[_requestId] = i;
     }
     
     function getWinners(uint256 i, uint256 selectedNum, address buyer) internal  {
         require(LINK.balanceOf(address(this)) > fee, "Not enough LINK - fill contract with faucet");
-        bytes32 _requestId = requestRandomness(keyHash, fee);
-        RID = _requestId;
+ uint256 _requestId = requestRandomness(
+            callbackGasLimit,
+            requestConfirmations,
+            numWords
+        );
+                RID = _requestId;
         requestIds[_requestId] = i;
         spinNumbers[_requestId] = selectedNum;
         spinBuyer[_requestId] = buyer;
     }
     
     
-    function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
-        randomNumber[requestId] = randomness;
-        getdraw(randomness,requestIds[requestId],requestId);
+    function fulfillRandomWords( uint256 _requestId,  uint256[] memory _randomWords) internal override {
+        randomNumber[_requestId] = _randomWords[0];
+        getdraw(_randomWords[0],requestIds[_requestId],_requestId);
     }
 
-    function getdraw(uint256 num,uint256 lotteryid,bytes32 requestId) internal  {
+    function getdraw(uint256 num,uint256 lotteryid,uint requestId) internal  {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         if(LotteryDatas.lotteryType == LotteryType.pick){
-            num =num.mod(LotteryDatas.Tickets.length);
+            num =num % (LotteryDatas.Tickets.length);
             LotteryDatas.status =LotteryState.resultdone;
             LotteryDatas.lotteryWinner=LotteryDatas.Tickets[num].userAddress;
             emit LotteryResult(LotteryDatas.Tickets[num].userAddress,lotteryid,block.timestamp);
              paywinner(LotteryDatas.Tickets[num].userAddress,lotteryid,requestId);
         }else{
-            num = num.mod(LotteryDatas.capacity) + 1;
+            num = num % (LotteryDatas.capacity) + 1;
             emit SpinLotteryResult(spinBuyer[requestId],lotteryid,spinNumbers[requestId],num,block.timestamp);   
             if(spinNumbers[requestId] == num){
             LotteryDatas.status =LotteryState.resultdone;
@@ -355,13 +320,13 @@ contract Autobet is VRFConsumerBase, KeeperCompatibleInterface{
     }
  
     
-    function paywinner( address useraddressdata , uint256 lotteryid,bytes32 requestId) public payable{
+    function paywinner( address useraddressdata , uint256 lotteryid,uint requestId) public payable{
         require(requestIds[requestId]== lotteryid,"Lottery Id mismatch");
         LotteryData storage LotteryDatas = lottery[lotteryid];
         if(useraddressdata!= address(0)){
              uint256 prizeAmt = LotteryDatas.totalPrize;
-            uint256 subtAmt = prizeAmt.mul(transferFeePerc).div(100);
-            uint256 finalAmount = prizeAmt.sub(subtAmt);
+            uint256 subtAmt = prizeAmt * (transferFeePerc)/100;
+            uint256 finalAmount = prizeAmt- subtAmt;
             payable(useraddressdata).transfer(finalAmount);
             emit WinnerPaid(useraddressdata, lotteryid, finalAmount);
         }
