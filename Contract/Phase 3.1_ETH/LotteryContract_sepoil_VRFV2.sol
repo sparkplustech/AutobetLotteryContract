@@ -1,4 +1,3 @@
-//0x11Ac50A17Af436fa7A40FF1CF7c1498f62D852Dd
 pragma solidity ^0.8.7;
 // SPDX-License-Identifier: Unlicensed
 
@@ -208,7 +207,7 @@ contract Autobet is
         require(admin == msg.sender, "not-a-admin");
         _;
     }
-    uint32 callbackGasLimit = 100000;
+    uint32 callbackGasLimit = 500000;
 
     // The default is 3, but you can set this higher.
     uint16 requestConfirmations = 3;
@@ -651,7 +650,7 @@ contract Autobet is
         s_requests[_requestId].fulfilled = true;
         s_requests[_requestId].randomWords = _randomness;
         randomNumber[_requestId] = _randomness[0];
-        getdraw(_randomness[0], requestIds[_requestId], _requestId);
+        getdraw(_randomness[_requestId], requestIds[_requestId], _requestId);
     }
 
     function getdraw(
