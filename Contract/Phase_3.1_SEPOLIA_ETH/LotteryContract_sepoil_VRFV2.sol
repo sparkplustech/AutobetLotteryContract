@@ -120,6 +120,7 @@ contract Autobet is
     uint256 public tokenEarnPercent = 5;
     address public tokenAddress;
     bytes32 hashresult;
+    uint256 public lastNumber = 0;
     // address[] partners;
     address public admin;
     bool public callresult;
@@ -208,7 +209,7 @@ contract Autobet is
         require(admin == msg.sender, "not-a-admin");
         _;
     }
-    uint32 callbackGasLimit = 500000;
+    uint32 callbackGasLimit = 700000;
 
     // The default is 3, but you can set this higher.
     uint16 requestConfirmations = 3;
@@ -494,8 +495,15 @@ contract Autobet is
             numbers.length == LotteryDatas.pickNumbers,
             "slots size not meet"
         );
-        require(block.timestamp < LotteryDates.endTime, "Time passed to buy");
         require(!TicketsList[hash], "Number Already claimed");
+
+        if (LotteryDatas.minPlayers <= lotterySales[lotteryid]) {
+            require(
+                block.timestamp < LotteryDates.endTime,
+                "Time passed to buy"
+            );
+        }
+
         TicketsList[hash] = true;
         lotteryTickets[lotteryid][msg.sender] += 1;
         LotteryDatas.Tickets.push(
@@ -530,7 +538,6 @@ contract Autobet is
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
-        require(block.timestamp < LotteryDates.endTime, "Time passed to buy");
         require(LotteryDatas.lotteryWinner == address(0), "Winner done");
         uint256[] memory numbarray = new uint256[](1);
         numbarray[0] = numbers;
@@ -678,6 +685,7 @@ contract Autobet is
             );
         } else {
             num = num.mod(LotteryDatas.capacity);
+            lastNumber = num;
             LotteryDatas.lotteryWinner = spinBuyer[requestId];
             emit SpinLotteryResult(
                 spinBuyer[requestId],
