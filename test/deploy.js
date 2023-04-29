@@ -19,8 +19,6 @@ describe("Token contract", function () {
     const Autobetlottery = await ethers.getContractFactory("Autobet");
     const Autobetdeploy = await Autobetlottery.deploy(Autobet.address);
 
-  // console.log("ownerBalance:",ownerBalance.tostring())
-
     console.log("contract address:",Autobetdeploy.address,"owner address:", owner.address) 
   }).timeout(1000000);
 });

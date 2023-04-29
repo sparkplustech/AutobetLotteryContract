@@ -59,9 +59,12 @@ describe("Set balances", function () {
     let lotteryId;
     let organisationbyaddr;
     const picknumbers = 1;
-    const startTime = Math.floor(Date.now() / 1000) + 60; // Start in 1 minute
-    const endtime = startTime + 3600; // End in 1 hour
+    const startTime = Math.floor(Date.now() / 1000) + 180; // Start in 1 minute
+    console.log(startTime,'st');
+    const endtime = startTime + 25200; // End in 1 hour
+    console.log(endtime,'et');
     const drawtime = endtime + 600; // Draw 10 minutes after end time
+    console.log(drawtime,'dt');
     const capacity = 10;
     const partner = 1;
     const rolloverperct = 34;
