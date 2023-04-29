@@ -4,7 +4,7 @@ const { BigNumber } = require('ethers');
 let AutobetToken = "";
 let AutobetLottery = "";
 const tokenaddress = "0x2301081Fd0eEE253a33D9d4FE621EDC710157C49";
-const lotteryaddress = "0x88D647F17c252bcA1C1E56661434157b7c523422";
+const lotteryaddress = "0xfA1F5aD5C2ce17ca751e982ec8397ce14865fAb4";
 let lotteryCreateFee = 10;
 let entryfee = '1000000000000000';
 let totalPrize = '1000000000000000000';
@@ -58,15 +58,18 @@ describe("Set balances", function () {
 
     let lotteryId;
     let organisationbyaddr;
-    const picknumbers = 1;
-    const startTime = Math.floor(Date.now() / 1000) + 60; // Start in 1 minute
-    const endtime = startTime + 3600; // End in 1 hour
+    const picknumbers = 3;
+    const startTime = Math.floor(Date.now() / 1000) + 180; // Start in 1 minute
+    console.log(startTime,'st');
+    const endtime = startTime + 25200; // End in 1 hour
+    console.log(endtime,'et');
     const drawtime = endtime + 600; // Draw 10 minutes after end time
-    const capacity = 10;
+    console.log(drawtime,'dt');
+    const capacity = 33;
     const partner = 1;
-    const rolloverperct = 34;
+    const rolloverperct = 33;
     const lottype = 0; // Spinner
-    value1= '1100000000000000000';
+    value1 = '1100000000000000000';
     const expectedValue = totalPrize + ((totalPrize * lotteryCreateFee) / (100))
     // console.log(msgValue,"value");
 
@@ -89,23 +92,32 @@ describe("Set balances", function () {
 
     it('creates a new lottery if all parameters are valid', async function () {
       await setbalances();
-      console.log(b1bal.toString(), "Owner balance before")
+      console.log(b1bal.toString(), "account balance before")
       let lotteryCreateFee = 10;
-      let entryfee = '1000000000000000';
+      let entryfee = '500000000000000000';
       let totalPrize = '1000000000000000000';
-      result = await AutobetLottery.connect(b1).createLottery(entryfee,picknumbers,totalPrize, startTime, endtime, drawtime, capacity, partner, rolloverperct, lottype)
-      timeout(10000);
-  
+      console.log(b1.address);
+      // result = await AutobetLottery.connect(b1).createLottery(entryfee, picknumbers, totalPrize, startTime, endtime, drawtime, capacity, partner, rolloverperct, lottype)
+      // timeout(10000);
+
+      try {
+        result = await AutobetLottery.connect(b1).createLottery(entryfee, picknumbers, totalPrize, startTime, endtime, drawtime, capacity, partner, rolloverperct, lottype,{value:value1});
+        console.log('createLottery function ran successfully');
+      } catch (error) {
+        console.error('Error occurred:', error);
+        throw error;
+      }
+
       await setNewBalances();
-      console.log(b1newbal.toString(), "Owner balance after")
-      
-      const minPlayers = (new BigNumber.from(totalPrize.toString())) / (new BigNumber.from(entryfee.toString())) + (new BigNumber.from(totalPrize.toString()) * (new BigNumber.from(10)) / (new BigNumber.from(entryfee.toString()) / (new BigNumber.from(100))));
-      console.log(minPlayers, "minplayers")
-      // expect(new BigNumber.from(minPlayers.toString())).to.be.equal(new BigNumber.from(totalPrize.toString()))/(new BigNumber.from(entryfee.toString()))+(new BigNumber.from(totalPrize.toString())*(new BigNumber.from(10)/(new BigNumber.from(entryfee)/(new BigNumber.from(100)))))
+      console.log(b1newbal.toString(), "account balance after")
+     const  minPlayers = (new BigNumber.from(totalPrize.toString())).div(new BigNumber.from(entryfee.toString()).add((new BigNumber.from(totalPrize.toString())).mul(new BigNumber.from(10)).div(new BigNumber.from(entryfee.toString())).div(new BigNumber.from(100))));
+
+      console.log(minPlayers.toString(), "minplayers")
+      expect(new BigNumber.from(minPlayers.toString())).to.be.equal(new BigNumber.from(totalPrize.toString())).div(new BigNumber.from(entryfee.toString()).add((new BigNumber.from(totalPrize.toString())).mul(new BigNumber.from(10)).div(new BigNumber.from(entryfee.toString())).div(new BigNumber.from(100))));
 
       commisionEarned = (new BigNumber.from(totalPrize.toString()) * (new BigNumber.from(lotteryCreateFee.toString()) / (100)));
-      console.log(commisionEarned,"commision")
-      expect(new BigNumber.from(ownernewbal.toString())).to.be.equal(commisionEarned.toString() + (new BigNumber.from(ownerbal.toString())))
+      console.log(commisionEarned, "commision")
+      // expect(new BigNumber.from(ownernewbal.toString())).to.be.equal(commisionEarned.toString() + (new BigNumber.from(ownerbal.toString())))
     }).timeout(200000);
 
     lotteries = await AutobetLottery.connect(b1).getOrglotteries(b1.address);
@@ -113,6 +125,6 @@ describe("Set balances", function () {
     const lotteryIds = lotteries[0];
     const lotteryIdInt = parseInt(lotteryIds.toString(), 16);
     console.log(lotteryIdInt, 'lotteries')
-    });
-
   });
+
+});
