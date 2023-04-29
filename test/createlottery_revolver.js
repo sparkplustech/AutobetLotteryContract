@@ -98,6 +98,7 @@ describe("Set balances", function () {
   
       await setNewBalances();
       console.log(b1newbal.toString(), "Owner balance after")
+      
       const minPlayers = (new BigNumber.from(totalPrize.toString())) / (new BigNumber.from(entryfee.toString())) + (new BigNumber.from(totalPrize.toString()) * (new BigNumber.from(10)) / (new BigNumber.from(entryfee.toString()) / (new BigNumber.from(100))));
       console.log(minPlayers, "minplayers")
       // expect(new BigNumber.from(minPlayers.toString())).to.be.equal(new BigNumber.from(totalPrize.toString()))/(new BigNumber.from(entryfee.toString()))+(new BigNumber.from(totalPrize.toString())*(new BigNumber.from(10)/(new BigNumber.from(entryfee)/(new BigNumber.from(100)))))

@@ -65,7 +65,7 @@ describe("Set balances", function () {
             const capacity = 10;
             const partner = 1;
             const rolloverperct = 34;
-            const lottype = 1; // Spinner
+            const lottype = 0; // Spinner
             value1 = '1100000000000000000';
             number = '1';
             result1 = await AutobetLottery.connect(b1).createLottery(entryfee, capacity, totalPrize, startTime, endtime, drawtime, capacity, partner, rolloverperct, lottype)
