@@ -209,7 +209,7 @@ contract Autobet is
         require(admin == msg.sender, "not-a-admin");
         _;
     }
-    uint32 callbackGasLimit = 70000;
+    uint32 callbackGasLimit = 700000;
 
     // The default is 3, but you can set this higher.
     uint16 requestConfirmations = 3;
