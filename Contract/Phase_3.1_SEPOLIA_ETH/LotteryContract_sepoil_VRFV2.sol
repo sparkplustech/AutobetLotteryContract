@@ -687,17 +687,17 @@ contract Autobet is
         } else {
             num = num.mod(LotteryDatas.capacity);
             lastNumber = num;
+            emit SpinLotteryResult(
+                spinBuyer[requestId],
+                lotteryid,
+                spinNumbers[requestId],
+                num,
+                block.timestamp
+            );
             if (spinNumbers[requestId] == num) {
                 LotteryDatas.status = LotteryState.resultdone;
                 LotteryDatas.lotteryWinner = spinBuyer[requestId];
                 paywinner(spinBuyer[requestId], lotteryid, requestId);
-                emit SpinLotteryResult(
-                    spinBuyer[requestId],
-                    lotteryid,
-                    spinNumbers[requestId],
-                    num,
-                    block.timestamp
-                );
             } else {
                 createRollover(lotteryid);
             }
