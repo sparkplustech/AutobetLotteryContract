@@ -1,21 +1,25 @@
 require("@nomiclabs/hardhat-waffle");
 
 module.exports = {
-  defaultNetwork: "goerli",
+  defaultNetwork: "sepolia",
+  paths: {
+    sources: './Contract/Phase_3.1_SEPOLIA_ETH',
+  },
   networks: {
     hardhat: {
     },
-    goerli: {
-      url: "https://goerli.infura.io/v3/5686b17f6f234085b42a3c455e4244bd",
+    
+    sepolia: {
+      url: "https://sepolia.infura.io/v3/5686b17f6f234085b42a3c455e4244bd",
 
       //url: "https://rpc-mumbai.maticvigil.com/v1/381a5a8b197cd8cb5667c5d5c6837a2bf5d975b7",
       accounts: [
-        `0x1a7ab01d299e0c0933cba7047392d46dcdb4af9749e1fdc6070e9fed5dc27c71`, //owner
-        `0xb3e5ca7f7e519c2d8f0cbe3ee9814221b6ee7bb4605c8620904edd5aede548f5`, //mark
-        `0xff59c41fbf36b188b258c0e25567a747b9a512dcf306e1f1aea4bd1dff1f3f10`,//a
-        `0xe9c6cdd3c94ec8f1a3ecc03febb57d3f2257d20d7e69d7300df7591163801193`,//b
-        `0x2b3b803df1545e5ac4fe982186bf59f7e98a4b766bad3b65608df041115c04f0`,//c
-        `0x82c789e731b488bf95c57d9e4d2d3962d4e1ebfcedad2422d31460521abac128`//d
+        `fddc46294a47c4bb4df6f72a07f8f00ab05bc9ad0675d3ce60fa61c4c8bdd0a8`, //owner
+        `795cfdbde534c21845cec57f330c322e9c31f850e0d2cf3730dd9589498bcbcf`, //mark
+        `b3c60f8c2948fa049baa700be9c861a6df538a7f7b6d58d5b48469f787b9e17e`,//a
+        `88a2fb3261a22b02c1571f3db37a7c304ebc7b36d75f1c17e1614e4af7cdbbb0`,//b
+        `452493a9cb54609355a5eb8a57ba3a0e2b68ac0e768078e1055bf0568632847a`,//c
+        `487a11a481e75bc81dc23a29146e3343433540fb49481b64ddfa9c293b1c2d5d`//d
       ],
   gas: 3000000,
     }
@@ -27,7 +31,7 @@ module.exports = {
         optimizer: {
           enabled: true,
           runs: 1337,
-          viaIR: true,
+          
         }}},
       {version: "0.5.16"}
     ],

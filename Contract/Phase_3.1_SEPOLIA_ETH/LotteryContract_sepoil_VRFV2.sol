@@ -109,7 +109,6 @@ contract Autobet is
     ConfirmedOwner
 {
     using SafeMath for uint256;
-    bytes32 internal keyHash;
     uint256 public RID;
     uint256 public lotteryId = 1;
     uint256 public ownerId = 1;
@@ -120,7 +119,6 @@ contract Autobet is
     uint256 public partnerRewardPerc = 10;
     uint256 public tokenEarnPercent = 5;
     address public tokenAddress;
-    uint256 internal fee;
     bytes32 hashresult;
     // address[] partners;
     address public admin;
@@ -135,7 +133,9 @@ contract Autobet is
 
     enum LotteryType {
         revolver,
-        pick
+        mine,
+        mrl,
+        missile
     }
 
     struct OwnerData {
@@ -157,6 +157,7 @@ contract Autobet is
         string name;
         string logoHash;
         bool status;
+        string websiteAdd;
         address partnerAddress;
         uint256 createdOn;
         uint256 partnerId;
@@ -165,6 +166,7 @@ contract Autobet is
     struct TicketsData {
         address userAddress;
         uint256 boughtOn;
+        uint256 lotteryId;
         uint256[] numbersPicked;
     }
 
@@ -190,6 +192,13 @@ contract Autobet is
         uint256 drawTime;
     }
 
+    struct RequestStatus {
+        uint256 paid; // amount paid in link
+        bool fulfilled; // whether the request has been successfully fulfilled
+        uint256[] randomWords;
+    }
+    mapping(uint256 => RequestStatus) public s_requests;
+
     modifier onlyowner() {
         require(organisationbyaddr[msg.sender].active, "Not a organisation");
         _;
@@ -199,14 +208,14 @@ contract Autobet is
         require(admin == msg.sender, "not-a-admin");
         _;
     }
-    uint32 callbackGasLimit = 100000;
+    uint32 callbackGasLimit = 500000;
 
     // The default is 3, but you can set this higher.
     uint16 requestConfirmations = 3;
 
     // For this example, retrieve 2 random values in one request.
     // Cannot exceed VRFV2Wrapper.getConfig().maxNumWords.
-    uint32 numWords = 2;
+    uint32 numWords = 1;
 
     mapping(uint256 => OwnerData) public organisationbyid;
     mapping(address => OwnerData) public organisationbyaddr;
@@ -290,6 +299,7 @@ contract Autobet is
         string _name,
         string _LogoHash,
         bool status,
+        string _websiteAdd,
         address _PartnerAddress,
         uint256 _CreatedOn
     );
@@ -303,8 +313,6 @@ contract Autobet is
             0xab18414CD93297B0d12ac29E63Ca20f515b3DB46
         )
     {
-        keyHash = 0x6e75b569a01ef56d18cab6a8e71e6600d6ce853834d4a5748b720d06f878b3a4;
-        fee = 0.0001 * 10 ** 18; // 0.0001 LINK
         admin = msg.sender;
         tokenAddress = _tokenAddress;
         organisationbyaddr[msg.sender] = OwnerData({
@@ -355,7 +363,7 @@ contract Autobet is
         uint256 _maxPrize
     ) external payable {
         assert(_owner != address(0));
-        uint256 median = ((_minPrize.add(_maxPrize)).mul(10 ** 18)).div(2);
+        uint256 median = (_minPrize.add(_maxPrize)).div(2);
         uint256 fees = (median * bregisterFee).div(100);
         require(
             organisationbyaddr[_owner].userAddress == address(0),
@@ -409,11 +417,11 @@ contract Autobet is
         LotteryType lottype
     ) public payable onlyowner {
         require(
-            organisationbyaddr[msg.sender].minPrize.mul(10 ** 18) <= totalPrize,
+            organisationbyaddr[msg.sender].minPrize <= totalPrize,
             "Not allowed winning amount"
         );
         require(
-            organisationbyaddr[msg.sender].maxPrize.mul(10 ** 18) >= totalPrize,
+            organisationbyaddr[msg.sender].maxPrize >= totalPrize,
             "Not allowed winning amount"
         );
         require(totalPrize > 0, "Low totalPrice");
@@ -429,6 +437,12 @@ contract Autobet is
             rolloverperct <= 50,
             "Rollover percentage can't be more than 50"
         );
+        if (lottype == LotteryType.revolver) {
+            require(picknumbers == 1, "Only 1 number allowed");
+        }
+        if (lottype == LotteryType.mine) {
+            require(picknumbers == 1, "Only 1 number allowed");
+        }
         lottery[lotteryId].partnerId = partner;
         lottery[lotteryId].lotteryId = lotteryId;
         lottery[lotteryId].rolloverperct = rolloverperct;
@@ -486,6 +500,7 @@ contract Autobet is
         lotteryTickets[lotteryid][msg.sender] += 1;
         LotteryDatas.Tickets.push(
             TicketsData({
+                lotteryId: lotteryid,
                 userAddress: msg.sender,
                 numbersPicked: numbers,
                 boughtOn: block.timestamp
@@ -522,6 +537,7 @@ contract Autobet is
         lotteryTickets[lotteryid][msg.sender] += 1;
         LotteryDatas.Tickets.push(
             TicketsData({
+                lotteryId: lotteryid,
                 userAddress: msg.sender,
                 numbersPicked: numbarray,
                 boughtOn: block.timestamp
@@ -568,7 +584,7 @@ contract Autobet is
         upkeepNeeded = false;
         require(!callresult, "Another Result running");
         for (uint256 i = 1; i < lotteryId; i++) {
-            if (lottery[i].lotteryType == LotteryType.pick) {
+            if (lottery[i].lotteryType == LotteryType.mrl) {
                 if (lottery[i].status != LotteryState.resultdone) {
                     if (lottery[i].minPlayers <= lotterySales[i]) {
                         if (lotteryDates[i].drawTime < block.timestamp) {
@@ -585,7 +601,7 @@ contract Autobet is
         require(!callresult, "required call true");
         callresult = true;
         for (uint256 i = 1; i < lotteryId; i++) {
-            if (lottery[i].lotteryType == LotteryType.pick) {
+            if (lottery[i].lotteryType == LotteryType.mrl) {
                 if (lottery[i].status != LotteryState.resultdone) {
                     if (lottery[i].minPlayers <= lotterySales[i]) {
                         if (lotteryDates[i].drawTime < block.timestamp) {
@@ -598,10 +614,6 @@ contract Autobet is
     }
 
     function getWinners(uint256 i) internal {
-        require(
-            LINK.balanceOf(address(this)) > fee,
-            "Not enough LINK - fill contract with faucet"
-        );
         uint256 _requestId = requestRandomness(
             callbackGasLimit,
             requestConfirmations,
@@ -616,23 +628,31 @@ contract Autobet is
         uint256 selectedNum,
         address buyer
     ) internal {
-        require(
-            LINK.balanceOf(address(this)) > fee,
-            "Not enough LINK - fill contract with faucet"
+        uint256 _requestId = requestRandomness(
+            callbackGasLimit,
+            requestConfirmations,
+            numWords
         );
-        uint256 _requestId = requestRandomness(100000, 2, 1);
         RID = _requestId;
         requestIds[_requestId] = i;
         spinNumbers[_requestId] = selectedNum;
         spinBuyer[_requestId] = buyer;
+        s_requests[_requestId] = RequestStatus({
+            paid: VRF_V2_WRAPPER.calculateRequestPrice(callbackGasLimit),
+            randomWords: new uint256[](0),
+            fulfilled: false
+        });
     }
 
     function fulfillRandomWords(
-        uint256 requestId,
-        uint256[] memory randomness
+        uint256 _requestId,
+        uint256[] memory _randomness
     ) internal override {
-        randomNumber[requestId] = randomness[0];
-        getdraw(randomness[0], requestIds[requestId], requestId);
+        require(s_requests[_requestId].paid > 0, "request not found");
+        s_requests[_requestId].fulfilled = true;
+        s_requests[_requestId].randomWords = _randomness;
+        randomNumber[_requestId] = _randomness[0];
+        getdraw(_randomness[_requestId], requestIds[_requestId], _requestId);
     }
 
     function getdraw(
@@ -642,7 +662,7 @@ contract Autobet is
     ) internal {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
-        if (LotteryDatas.lotteryType == LotteryType.pick) {
+        if (LotteryDatas.lotteryType == LotteryType.mrl) {
             num = num.mod(LotteryDatas.Tickets.length);
             LotteryDatas.status = LotteryState.resultdone;
             LotteryDatas.lotteryWinner = LotteryDatas.Tickets[num].userAddress;
@@ -888,6 +908,7 @@ contract Autobet is
         string memory _name,
         string memory _logoHash,
         bool _status,
+        string memory _websiteAdd,
         address _partnerAddress,
         uint256 _createdOn
     ) external {
@@ -902,6 +923,7 @@ contract Autobet is
             name: _name,
             logoHash: _logoHash,
             status: _status,
+            websiteAdd: _websiteAdd,
             partnerAddress: _partnerAddress,
             createdOn: _createdOn
         });
@@ -910,6 +932,7 @@ contract Autobet is
             name: _name,
             logoHash: _logoHash,
             status: _status,
+            websiteAdd: _websiteAdd,
             partnerAddress: _partnerAddress,
             createdOn: _createdOn
         });
@@ -918,6 +941,7 @@ contract Autobet is
             _name,
             _logoHash,
             _status,
+            _websiteAdd,
             _partnerAddress,
             _createdOn
         );
@@ -927,6 +951,7 @@ contract Autobet is
         string memory _name,
         string memory _logoHash,
         bool _status,
+        string memory _websiteAdd,
         address _partnerAddress,
         uint256 _createdOn
     ) external {
@@ -944,6 +969,7 @@ contract Autobet is
             name: _name,
             logoHash: _logoHash,
             status: _status,
+            websiteAdd: _websiteAdd,
             partnerAddress: _partnerAddress,
             createdOn: _createdOn
         });
@@ -952,6 +978,7 @@ contract Autobet is
             name: _name,
             logoHash: _logoHash,
             status: _status,
+            websiteAdd: _websiteAdd,
             partnerAddress: _partnerAddress,
             createdOn: _createdOn
         });
