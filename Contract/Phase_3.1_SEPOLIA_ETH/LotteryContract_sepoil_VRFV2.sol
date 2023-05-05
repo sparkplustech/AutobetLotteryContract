@@ -116,22 +116,20 @@ contract Autobet is
     uint256 public bregisterFee = 10;
     uint256 public lotteryCreateFee = 10;
     uint256 public transferFeePerc = 10;
-    uint256 public partnerRewardPerc = 10;
-    uint256 public minimumRollover = 10000;
+    uint256 public minimumRollover = 100;
     uint256 public tokenEarnPercent = 5;
     address public tokenAddress;
     bytes32 hashresult;
     uint256 public lastNumber = 0;
-    // address[] partners;
     address public admin;
     bool public callresult;
-    bool public rollover = false;
 
     enum LotteryState {
         open,
         close,
         resultdone,
-        rollover
+        rollover,
+        blocked
     }
 
     enum LotteryType {
@@ -181,6 +179,7 @@ contract Autobet is
         uint256 totalPrize; // Total wining price.
         uint256 minPlayers;
         uint256 partnerId;
+        uint256 partnershare;
         uint256 rolloverperct;
         address lotteryWinner;
         address ownerAddress;
@@ -241,6 +240,8 @@ contract Autobet is
     mapping(uint256 => uint256) public spinNumbers;
     mapping(uint256 => address) public spinBuyer;
 
+    mapping(uint256 => uint256[]) public minelottery;
+
     mapping(address => uint256[]) private userlotterydata;
     mapping(address => uint256[]) private partnerlotterydata;
 
@@ -289,6 +290,12 @@ contract Autobet is
         uint256 amountwon
     );
 
+    event PartnerPaid(
+        address indexed partneradddress,
+        uint256 indexed lotteryId,
+        uint256 amountpaid
+    );
+
     event SpinLotteryResult(
         address indexed useraddressdata,
         uint256 indexed lotteryId,
@@ -297,7 +304,7 @@ contract Autobet is
         uint256 date
     );
 
-    event partneradded(
+    event PartnerAdded(
         uint256 partnerId,
         string _name,
         string _LogoHash,
@@ -417,6 +424,7 @@ contract Autobet is
         uint256 capacity,
         uint256 partner,
         uint256 rolloverperct,
+        uint256 partnershare,
         LotteryType lottype
     ) public payable onlyowner {
         require(
@@ -428,6 +436,10 @@ contract Autobet is
             "Not allowed winning amount"
         );
         require(totalPrize > 0, "Low totalPrice");
+        require(
+            partnershare > 0 && partnershare <= 100,
+            "Share can be 1 to 100"
+        );
         require(
             totalPrize.add((totalPrize * lotteryCreateFee).div(100)) ==
                 msg.value,
@@ -460,6 +472,7 @@ contract Autobet is
         lottery[lotteryId].status = LotteryState.open;
         lottery[lotteryId].ownerAddress = msg.sender;
         lottery[lotteryId].lotteryType = lottype;
+        lottery[lotteryId].partnershare = partnershare;
         lottery[lotteryId].minPlayers =
             (totalPrize).div(entryfee) +
             (totalPrize).mul(10).div(entryfee).div(100);
@@ -505,6 +518,19 @@ contract Autobet is
                 "Time passed to buy"
             );
         }
+        if (
+            block.timestamp < LotteryDates.endTime &&
+            LotteryDatas.lotteryType == LotteryType.mrl
+        ) {
+            LotteryDates.drawTime =
+                LotteryDates.drawTime +
+                LotteryDatas.rolloverperct *
+                86400;
+            LotteryDates.endTime =
+                LotteryDates.endTime +
+                LotteryDatas.rolloverperct *
+                86400;
+        }
 
         TicketsList[hash] = true;
         lotteryTickets[lotteryid][msg.sender] += 1;
@@ -523,6 +549,10 @@ contract Autobet is
         tokenearned[msg.sender] += (
             (LotteryDatas.entryFee * tokenEarnPercent).div(100)
         );
+        if (LotteryDatas.lotteryType == LotteryType.mine) {
+            minelottery[lotteryid].push(numbers[0]);
+        }
+
         emit LotteryBought(
             numbers,
             lotteryid,
@@ -541,8 +571,13 @@ contract Autobet is
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
         require(LotteryDatas.lotteryWinner == address(0), "Winner done");
+        require(
+            LotteryDatas.status == LotteryState.open,
+            "Other player playing"
+        );
         uint256[] memory numbarray = new uint256[](1);
         numbarray[0] = numbers;
+        LotteryDatas.status = LotteryState.blocked;
         lotteryTickets[lotteryid][msg.sender] += 1;
         LotteryDatas.Tickets.push(
             TicketsData({
@@ -593,7 +628,10 @@ contract Autobet is
         upkeepNeeded = false;
         require(!callresult, "Another Result running");
         for (uint256 i = 1; i < lotteryId; i++) {
-            if (lottery[i].lotteryType == LotteryType.mrl) {
+            if (
+                lottery[i].lotteryType == LotteryType.mrl ||
+                lottery[i].lotteryType == LotteryType.mine
+            ) {
                 if (lottery[i].status != LotteryState.resultdone) {
                     if (lottery[i].minPlayers <= lotterySales[i]) {
                         if (lotteryDates[i].drawTime < block.timestamp) {
@@ -610,7 +648,10 @@ contract Autobet is
         require(!callresult, "required call true");
         callresult = true;
         for (uint256 i = 1; i < lotteryId; i++) {
-            if (lottery[i].lotteryType == LotteryType.mrl) {
+            if (
+                lottery[i].lotteryType == LotteryType.mrl ||
+                lottery[i].lotteryType == LotteryType.mine
+            ) {
                 if (lottery[i].status != LotteryState.resultdone) {
                     if (lottery[i].minPlayers <= lotterySales[i]) {
                         if (lotteryDates[i].drawTime < block.timestamp) {
@@ -699,15 +740,15 @@ contract Autobet is
                 LotteryDatas.lotteryWinner = spinBuyer[requestId];
                 paywinner(spinBuyer[requestId], lotteryid, requestId);
             } else {
-                createRollover(lotteryid);
+                callresult = false;
+                createRevolverRollover(lotteryid);
             }
         }
     }
 
-    function createRollover(uint256 lotteryid) internal {
+    function createRevolverRollover(uint256 lotteryid) internal {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
-        LotteryDatas.status = LotteryState.rollover;
         uint256 newTotalPrize = LotteryDatas
             .totalPrize
             .mul(LotteryDatas.rolloverperct)
@@ -729,6 +770,7 @@ contract Autobet is
             lottery[lotteryId].ownerAddress = LotteryDatas.ownerAddress;
             lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
             lottery[lotteryId].minPlayers = LotteryDatas.minPlayers;
+            lottery[lotteryId].partnershare = LotteryDatas.partnershare;
             orglotterydata[LotteryDatas.ownerAddress].push(lotteryId);
             organisationbyaddr[admin].commissionEarned += newTotalPrize;
             emit CreatedLottery(
@@ -759,13 +801,22 @@ contract Autobet is
             uint256 subtAmt = prizeAmt.mul(transferFeePerc).div(100);
             uint256 finalAmount = prizeAmt.sub(subtAmt);
             payable(useraddressdata).transfer(finalAmount);
-            organisationbyaddr[admin].commissionEarned += subtAmt;
-            if (LotteryDatas.lotteryType == LotteryType.revolver) {
-                uint256 partnerpay = prizeAmt.mul(partnerRewardPerc).div(100);
-                payable(partnerbyid[LotteryDatas.partnerId].partnerAddress)
-                    .transfer(partnerpay);
-            }
             emit WinnerPaid(useraddressdata, lotteryid, finalAmount);
+            organisationbyaddr[admin].commissionEarned += subtAmt;
+            uint256 totalSale = lotterySales[lotteryid];
+            uint256 totalProfit = totalSale * LotteryDatas.entryFee;
+            uint256 partnerpay = totalProfit.mul(LotteryDatas.partnershare).div(
+                100
+            );
+            payable(partnerbyid[LotteryDatas.partnerId].partnerAddress)
+                .transfer(partnerpay);
+            organisationbyaddr[LotteryDatas.ownerAddress]
+                .amountEarned -= partnerpay;
+            emit PartnerPaid(
+                partnerbyid[LotteryDatas.partnerId].partnerAddress,
+                lotteryid,
+                partnerpay
+            );
         }
         callresult = false;
     }
@@ -841,11 +892,22 @@ contract Autobet is
         return (userdata, useraddressdata);
     }
 
+    function getMineLotteryNumbers(
+        uint256 lotteryid
+    ) public view returns (uint256[] memory numbers) {
+        uint256[] memory number = new uint256[](minelottery[lotteryid].length);
+        uint256 p = 0;
+        for (uint256 i = 0; i < minelottery[lotteryid].length; i++) {
+            number[p++] = minelottery[lotteryid][i];
+        }
+        return (number);
+    }
+
     function withdrawcommission() external payable {
         uint256 amountEarned = organisationbyaddr[msg.sender].amountEarned;
         uint256 subtAmt = amountEarned.mul(transferFeePerc).div(100);
         uint256 finalAmount = amountEarned.sub(subtAmt);
-        payable((msg.sender)).transfer(finalAmount);
+        payable(msg.sender).transfer(finalAmount);
         organisationbyaddr[admin].commissionEarned += subtAmt;
         organisationbyaddr[msg.sender].commissionEarned += finalAmount;
         organisationbyaddr[msg.sender].amountEarned = 0;
@@ -878,12 +940,16 @@ contract Autobet is
         uint256 _lotteryCreateFee,
         uint256 _transferFeePerc,
         uint256 _tokenEarnPercent,
-        uint256 _partnerRewardPerc
+        uint256 _minroll
     ) external onlyAdmin {
         lotteryCreateFee = _lotteryCreateFee;
         transferFeePerc = _transferFeePerc;
         tokenEarnPercent = _tokenEarnPercent;
-        partnerRewardPerc = _partnerRewardPerc;
+        minimumRollover = _minroll;
+    }
+
+    function updateMinrollover(uint256 _minroll) external onlyAdmin {
+        minimumRollover = _minroll;
     }
 
     function contractBalance()
@@ -909,7 +975,7 @@ contract Autobet is
         uint256 amount,
         address to,
         address tokenAdd
-    ) external {
+    ) external onlyAdmin {
         require(
             amount <= IERC20(tokenAdd).balanceOf(address(this)),
             "low balance"
@@ -919,6 +985,7 @@ contract Autobet is
 
     function transferAdmin(address newAdmin) external onlyAdmin {
         require(newAdmin != address(0));
+        organisationbyaddr[newAdmin] = organisationbyaddr[msg.sender];
         admin = newAdmin;
     }
 
@@ -954,7 +1021,7 @@ contract Autobet is
             partnerAddress: _partnerAddress,
             createdOn: _createdOn
         });
-        emit partneradded(
+        emit PartnerAdded(
             partnerId,
             _name,
             _logoHash,
