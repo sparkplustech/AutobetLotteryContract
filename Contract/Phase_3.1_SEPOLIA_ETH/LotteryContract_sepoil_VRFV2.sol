@@ -817,10 +817,8 @@ contract Autobet is
     function createRevolverRollover(uint256 lotteryid) internal {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
-        uint256 newTotalPrize = LotteryDatas
-            .totalPrize
-            .mul(LotteryDatas.rolloverperct)
-            .div(100) - LotteryDatas.totalPrize.mul(lotteryCreateFee).div(100);
+        uint256 newTotalPrize = LotteryDatas.totalPrize +
+            LotteryDatas.entryFee.mul(LotteryDatas.rolloverperct).div(100);
         if (newTotalPrize >= minimumRollover) {
             LotteryDatas.status = LotteryState.rollover;
             lottery[lotteryId].partnerId = LotteryDatas.partnerId;
