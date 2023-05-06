@@ -118,9 +118,9 @@ contract Autobet is
     uint256 public transferFeePerc = 10;
     uint256 public minimumRollover = 100;
     uint256 public tokenEarnPercent = 5;
+    uint256 public defaultRolloverday = 5;
     address public tokenAddress;
     bytes32 hashresult;
-    uint256 public lastNumber = 0;
     address public admin;
     bool public callresult;
 
@@ -241,6 +241,8 @@ contract Autobet is
     mapping(uint256 => address) public spinBuyer;
 
     mapping(uint256 => uint256[]) public minelottery;
+
+    mapping(uint256 => uint256) private missilecodes;
 
     mapping(address => uint256[]) private userlotterydata;
     mapping(address => uint256[]) private partnerlotterydata;
@@ -468,7 +470,12 @@ contract Autobet is
         lotteryDates[lotteryId].endTime = endtime;
         lotteryDates[lotteryId].lotteryId = lotteryId;
         lotteryDates[lotteryId].drawTime = drawtime;
-        lottery[lotteryId].capacity = capacity;
+        if (lottype != LotteryType.missile) {
+            lottery[lotteryId].capacity = capacity;
+        } else {
+            missilecodes[lotteryId] = capacity;
+            capacity = 0;
+        }
         lottery[lotteryId].status = LotteryState.open;
         lottery[lotteryId].ownerAddress = msg.sender;
         lottery[lotteryId].lotteryType = lottype;
@@ -605,6 +612,72 @@ contract Autobet is
         getWinners(lotteryid, numbers, msg.sender);
     }
 
+    function buyMissilelottery(uint256 code, uint256 lotteryid) public payable {
+        LotteryData storage LotteryDatas = lottery[lotteryid];
+        LotteryDate storage LotteryDates = lotteryDates[lotteryid];
+        uint256[] memory codes = new uint256[](1);
+        require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
+        codes[0] = code;
+
+        lotteryTickets[lotteryid][msg.sender] += 1;
+        LotteryDatas.Tickets.push(
+            TicketsData({
+                lotteryId: lotteryid,
+                userAddress: msg.sender,
+                numbersPicked: codes,
+                boughtOn: block.timestamp
+            })
+        );
+        amountspend[msg.sender] += msg.value;
+        organisationbyaddr[LotteryDatas.ownerAddress].amountEarned += msg.value;
+        userlotterydata[msg.sender].push(lotteryid);
+        lotterySales[lotteryid]++;
+        tokenearned[msg.sender] += (
+            (LotteryDatas.entryFee * tokenEarnPercent).div(100)
+        );
+
+        emit LotteryBought(
+            codes,
+            lotteryid,
+            block.timestamp,
+            msg.sender,
+            LotteryDates.drawTime,
+            LotteryDatas.entryFee
+        );
+
+        if (code == missilecodes[lotteryid]) {
+            requestIds[
+                79605497052302279665647778512986110346654820553100948541933326299138325266895
+            ] = lotteryid;
+            LotteryDatas.status = LotteryState.resultdone;
+            LotteryDatas.lotteryWinner = msg.sender;
+            paywinner(
+                lotteryid,
+                79605497052302279665647778512986110346654820553100948541933326299138325266895
+            );
+        } else {
+            if (block.timestamp < LotteryDates.endTime) {
+                LotteryDates.drawTime =
+                    LotteryDates.drawTime +
+                    defaultRolloverday *
+                    86400;
+                LotteryDates.endTime =
+                    LotteryDates.endTime +
+                    defaultRolloverday *
+                    86400;
+                uint256 totalSaleProfit = lotterySales[lotteryid] *
+                    LotteryDatas.entryFee;
+                LotteryDatas.totalPrize = LotteryDatas.totalPrize.add(
+                    totalSaleProfit.mul(LotteryDatas.rolloverperct).div(100)
+                );
+                organisationbyaddr[LotteryDatas.ownerAddress]
+                    .amountEarned -= totalSaleProfit
+                    .mul(LotteryDatas.rolloverperct)
+                    .div(100);
+            }
+        }
+    }
+
     function updateMinMax(
         uint256 _minPrize,
         uint256 _maxPrize
@@ -720,14 +793,9 @@ contract Autobet is
                 lotteryid,
                 block.timestamp
             );
-            paywinner(
-                LotteryDatas.Tickets[num].userAddress,
-                lotteryid,
-                requestId
-            );
+            paywinner(lotteryid, requestId);
         } else {
             num = num.mod(LotteryDatas.capacity);
-            lastNumber = num;
             emit SpinLotteryResult(
                 spinBuyer[requestId],
                 lotteryid,
@@ -738,7 +806,7 @@ contract Autobet is
             if (spinNumbers[requestId] == num) {
                 LotteryDatas.status = LotteryState.resultdone;
                 LotteryDatas.lotteryWinner = spinBuyer[requestId];
-                paywinner(spinBuyer[requestId], lotteryid, requestId);
+                paywinner(lotteryid, requestId);
             } else {
                 callresult = false;
                 createRevolverRollover(lotteryid);
@@ -789,13 +857,10 @@ contract Autobet is
         }
     }
 
-    function paywinner(
-        address useraddressdata,
-        uint256 lotteryid,
-        uint256 requestId
-    ) public payable {
+    function paywinner(uint256 lotteryid, uint256 requestId) public payable {
         require(requestIds[requestId] == lotteryid, "Lottery Id mismatch");
         LotteryData storage LotteryDatas = lottery[lotteryid];
+        address useraddressdata = LotteryDatas.lotteryWinner;
         if (useraddressdata != address(0)) {
             uint256 prizeAmt = LotteryDatas.totalPrize;
             uint256 subtAmt = prizeAmt.mul(transferFeePerc).div(100);
@@ -803,11 +868,11 @@ contract Autobet is
             payable(useraddressdata).transfer(finalAmount);
             emit WinnerPaid(useraddressdata, lotteryid, finalAmount);
             organisationbyaddr[admin].commissionEarned += subtAmt;
-            uint256 totalSale = lotterySales[lotteryid];
-            uint256 totalProfit = totalSale * LotteryDatas.entryFee;
-            uint256 partnerpay = totalProfit.mul(LotteryDatas.partnershare).div(
-                100
-            );
+            uint256 totalSaleProfit = lotterySales[lotteryid] *
+                LotteryDatas.entryFee;
+            uint256 partnerpay = totalSaleProfit
+                .mul(LotteryDatas.partnershare)
+                .div(100);
             payable(partnerbyid[LotteryDatas.partnerId].partnerAddress)
                 .transfer(partnerpay);
             organisationbyaddr[LotteryDatas.ownerAddress]
@@ -948,17 +1013,12 @@ contract Autobet is
         minimumRollover = _minroll;
     }
 
-    function updateMinrollover(uint256 _minroll) external onlyAdmin {
+    function updateMinrollover(
+        uint256 _minroll,
+        uint256 _rolloverday
+    ) external onlyAdmin {
         minimumRollover = _minroll;
-    }
-
-    function contractBalance()
-        external
-        view
-        onlyAdmin
-        returns (uint256 balance)
-    {
-        return address(this).balance;
+        defaultRolloverday = _rolloverday;
     }
 
     function redeemTokens() external {
