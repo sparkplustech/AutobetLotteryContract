@@ -424,7 +424,7 @@ contract Autobet is
             );
         }
         if (
-            block.timestamp < LotteryDates.endTime &&
+            block.timestamp > LotteryDates.endTime &&
             LotteryDatas.lotteryType == LotteryType.mrl
         ) {
             LotteryDates.drawTime =
@@ -551,8 +551,8 @@ contract Autobet is
                 79605497052302279665647778512986110346654820553100948541933326299138325266895
             );
         } else {
-            if (block.timestamp < LotteryDates.endTime) {
-                LotteryDates.level = LotteryDates.level + 1;
+            if (block.timestamp > LotteryDates.endTime) {
+                LotteryDates.drawTime = LotteryDates.level + 1;
                 LotteryDates.drawTime =
                     LotteryDates.drawTime +
                     defaultRolloverday *
@@ -685,7 +685,10 @@ contract Autobet is
         uint256 requestId
     ) internal {
         LotteryData storage LotteryDatas = lottery[lotteryid];
-        if (LotteryDatas.lotteryType == LotteryType.mrl) {
+        if (
+            LotteryDatas.lotteryType == LotteryType.mrl ||
+            LotteryDatas.lotteryType == LotteryType.mine
+        ) {
             num = num.mod(LotteryDatas.Tickets.length);
             LotteryDatas.status = LotteryState.resultdone;
             LotteryDatas.lotteryWinner = LotteryDatas.Tickets[num].userAddress;
