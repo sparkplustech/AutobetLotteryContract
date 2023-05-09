@@ -1,107 +1,10 @@
 pragma solidity ^0.8.7;
 // SPDX-License-Identifier: Unlicensed
-
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
 import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
 import "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
-
-interface IERC20 {
-    function transfer(
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-
-    function allowance(
-        address owner,
-        address spender
-    ) external view returns (uint256);
-
-    function totalSupply() external view returns (uint256);
-
-    function balanceOf(address account) external view returns (uint256);
-
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(
-        address indexed owner,
-        address indexed spender,
-        uint256 value
-    );
-}
-
-library SafeMath {
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a, "SafeMath: addition overflow");
-
-        return c;
-    }
-
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        return sub(a, b, "SafeMath: subtraction overflow");
-    }
-
-    function sub(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        require(b <= a, errorMessage);
-        uint256 c = a - b;
-
-        return c;
-    }
-
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
-        // benefit is lost if 'b' is also tested.
-        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
-        if (a == 0) {
-            return 0;
-        }
-
-        uint256 c = a * b;
-        require(c / a == b, "SafeMath: multiplication overflow");
-
-        return c;
-    }
-
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        return div(a, b, "SafeMath: division by zero");
-    }
-
-    function div(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        require(b > 0, errorMessage);
-        uint256 c = a / b;
-        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-
-        return c;
-    }
-
-    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
-        return mod(a, b, "SafeMath: modulo by zero");
-    }
-
-    function mod(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        require(b != 0, errorMessage);
-        return a % b;
-    }
-}
 
 contract Autobet is
     AutomationCompatibleInterface,
@@ -120,7 +23,6 @@ contract Autobet is
     uint256 public tokenEarnPercent = 5;
     uint256 public defaultRolloverday = 5;
     address public tokenAddress;
-    bytes32 hashresult;
     address public admin;
     bool public callresult;
 
@@ -192,6 +94,7 @@ contract Autobet is
         uint256 startTime; // Start time of Lottery.
         uint256 endTime; // End time of lottery.
         uint256 drawTime;
+        uint16 level;
     }
 
     struct RequestStatus {
@@ -304,16 +207,6 @@ contract Autobet is
         uint256 selectedNum,
         uint256 winnerNum,
         uint256 date
-    );
-
-    event PartnerAdded(
-        uint256 partnerId,
-        string _name,
-        string _LogoHash,
-        bool status,
-        string _websiteAdd,
-        address _PartnerAddress,
-        uint256 _CreatedOn
     );
 
     constructor(
@@ -455,10 +348,14 @@ contract Autobet is
             "Rollover percentage can't be more than 50"
         );
         if (lottype == LotteryType.revolver) {
+            require(capacity > 5, "Capacity should be greater than 5");
             require(picknumbers == 1, "Only 1 number allowed");
         }
         if (lottype == LotteryType.mine) {
             require(picknumbers == 1, "Only 1 number allowed");
+        }
+        if (lottype == LotteryType.missile) {
+            require(picknumbers <= 10, " Only 10 combination allowed");
         }
         lottery[lotteryId].partnerId = partner;
         lottery[lotteryId].lotteryId = lotteryId;
@@ -470,6 +367,7 @@ contract Autobet is
         lotteryDates[lotteryId].endTime = endtime;
         lotteryDates[lotteryId].lotteryId = lotteryId;
         lotteryDates[lotteryId].drawTime = drawtime;
+        lotteryDates[lotteryId].level = 1;
         if (lottype != LotteryType.missile) {
             lottery[lotteryId].capacity = capacity;
         } else {
@@ -618,7 +516,6 @@ contract Autobet is
         uint256[] memory codes = new uint256[](1);
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
         codes[0] = code;
-
         lotteryTickets[lotteryid][msg.sender] += 1;
         LotteryDatas.Tickets.push(
             TicketsData({
@@ -635,7 +532,6 @@ contract Autobet is
         tokenearned[msg.sender] += (
             (LotteryDatas.entryFee * tokenEarnPercent).div(100)
         );
-
         emit LotteryBought(
             codes,
             lotteryid,
@@ -644,7 +540,6 @@ contract Autobet is
             LotteryDates.drawTime,
             LotteryDatas.entryFee
         );
-
         if (code == missilecodes[lotteryid]) {
             requestIds[
                 79605497052302279665647778512986110346654820553100948541933326299138325266895
@@ -657,6 +552,7 @@ contract Autobet is
             );
         } else {
             if (block.timestamp < LotteryDates.endTime) {
+                LotteryDates.level = LotteryDates.level + 1;
                 LotteryDates.drawTime =
                     LotteryDates.drawTime +
                     defaultRolloverday *
@@ -744,6 +640,11 @@ contract Autobet is
         );
         RID = _requestId;
         requestIds[_requestId] = i;
+        s_requests[_requestId] = RequestStatus({
+            paid: VRF_V2_WRAPPER.calculateRequestPrice(callbackGasLimit),
+            randomWords: new uint256[](0),
+            fulfilled: false
+        });
     }
 
     function getWinners(
@@ -796,6 +697,7 @@ contract Autobet is
             paywinner(lotteryid, requestId);
         } else {
             num = num.mod(LotteryDatas.capacity);
+            num = num.add(1);
             emit SpinLotteryResult(
                 spinBuyer[requestId],
                 lotteryid,
@@ -837,6 +739,7 @@ contract Autobet is
             lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
             lottery[lotteryId].minPlayers = LotteryDatas.minPlayers;
             lottery[lotteryId].partnershare = LotteryDatas.partnershare;
+            lotteryDates[lotteryId].level = LotteryDates.level + 1;
             orglotterydata[LotteryDatas.ownerAddress].push(lotteryId);
             organisationbyaddr[admin].commissionEarned += newTotalPrize;
             emit CreatedLottery(
@@ -1079,15 +982,6 @@ contract Autobet is
             partnerAddress: _partnerAddress,
             createdOn: _createdOn
         });
-        emit PartnerAdded(
-            partnerId,
-            _name,
-            _logoHash,
-            _status,
-            _websiteAdd,
-            _partnerAddress,
-            _createdOn
-        );
     }
 
     function EditPartnerDetails(
