@@ -427,14 +427,12 @@ contract Autobet is
             block.timestamp > LotteryDates.endTime &&
             LotteryDatas.lotteryType == LotteryType.mrl
         ) {
-            LotteryDates.drawTime =
-                LotteryDates.drawTime +
-                LotteryDatas.rolloverperct *
-                86400;
-            LotteryDates.endTime =
-                LotteryDates.endTime +
-                LotteryDatas.rolloverperct *
-                86400;
+            LotteryDates.drawTime = LotteryDates.drawTime.add(
+                LotteryDatas.rolloverperct.mul(86400)
+            );
+            LotteryDates.endTime = LotteryDates.endTime.add(
+                LotteryDatas.rolloverperct.mul(86400)
+            );
         }
 
         TicketsList[hash] = true;
@@ -513,15 +511,15 @@ contract Autobet is
     function buyMissilelottery(uint256 code, uint256 lotteryid) public payable {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
-        uint256[] memory codes = new uint256[](1);
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
-        codes[0] = code;
+        uint256[] memory numbarray = new uint256[](1);
+        numbarray[0] = code;
         lotteryTickets[lotteryid][msg.sender] += 1;
         LotteryDatas.Tickets.push(
             TicketsData({
                 lotteryId: lotteryid,
                 userAddress: msg.sender,
-                numbersPicked: codes,
+                numbersPicked: numbarray,
                 boughtOn: block.timestamp
             })
         );
@@ -533,7 +531,7 @@ contract Autobet is
             (LotteryDatas.entryFee * tokenEarnPercent).div(100)
         );
         emit LotteryBought(
-            codes,
+            numbarray,
             lotteryid,
             block.timestamp,
             msg.sender,
@@ -552,15 +550,13 @@ contract Autobet is
             );
         } else {
             if (block.timestamp > LotteryDates.endTime) {
-                LotteryDates.drawTime = LotteryDates.level + 1;
-                LotteryDates.drawTime =
-                    LotteryDates.drawTime +
-                    defaultRolloverday *
-                    86400;
-                LotteryDates.endTime =
-                    LotteryDates.endTime +
-                    defaultRolloverday *
-                    86400;
+                LotteryDates.level = LotteryDates.level + 1;
+                LotteryDates.drawTime = LotteryDates.drawTime.add(
+                    defaultRolloverday.mul(86400)
+                );
+                LotteryDates.endTime = LotteryDates.endTime.add(
+                    defaultRolloverday.mul(86400)
+                );
                 uint256 totalSaleProfit = lotterySales[lotteryid] *
                     LotteryDatas.entryFee;
                 LotteryDatas.totalPrize = LotteryDatas.totalPrize.add(
