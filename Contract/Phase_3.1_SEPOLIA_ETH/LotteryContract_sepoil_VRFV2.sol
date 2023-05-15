@@ -12,7 +12,6 @@ contract Autobet is
     ConfirmedOwner
 {
     using SafeMath for uint256;
-    uint256 public RID;
     uint256 public lotteryId = 1;
     uint256 public ownerId = 1;
     uint256 public partnerId = 0;
@@ -91,6 +90,7 @@ contract Autobet is
     }
     struct LotteryDate {
         uint256 lotteryId;
+        uint256 deployedOn;
         uint256 startTime; // Start time of Lottery.
         uint256 endTime; // End time of lottery.
         uint256 drawTime;
@@ -303,7 +303,7 @@ contract Autobet is
             amountEarned: 0,
             commissionEarned: 0,
             minPrize: _minPrize,
-            maxPrize: _minPrize
+            maxPrize: _maxPrize
         });
         organisationbyaddr[admin].commissionEarned += msg.value;
         emit RegisterBookie(ownerId, _owner, _name, _referee);
@@ -367,6 +367,7 @@ contract Autobet is
         lotteryDates[lotteryId].endTime = endtime;
         lotteryDates[lotteryId].lotteryId = lotteryId;
         lotteryDates[lotteryId].drawTime = drawtime;
+        lotteryDates[lotteryId].deployedOn = block.timestamp;
         lotteryDates[lotteryId].level = 1;
         if (lottype != LotteryType.missile) {
             lottery[lotteryId].capacity = capacity;
@@ -473,7 +474,6 @@ contract Autobet is
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
-        require(LotteryDatas.lotteryWinner == address(0), "Winner done");
         require(
             LotteryDatas.status == LotteryState.open,
             "Other player playing"
@@ -634,7 +634,6 @@ contract Autobet is
             requestConfirmations,
             numWords
         );
-        RID = _requestId;
         requestIds[_requestId] = i;
         s_requests[_requestId] = RequestStatus({
             paid: VRF_V2_WRAPPER.calculateRequestPrice(callbackGasLimit),
@@ -653,7 +652,6 @@ contract Autobet is
             requestConfirmations,
             numWords
         );
-        RID = _requestId;
         requestIds[_requestId] = i;
         spinNumbers[_requestId] = selectedNum;
         spinBuyer[_requestId] = buyer;
@@ -737,6 +735,7 @@ contract Autobet is
             lottery[lotteryId].ownerAddress = LotteryDatas.ownerAddress;
             lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
             lottery[lotteryId].minPlayers = LotteryDatas.minPlayers;
+            lotteryDates[lotteryId].deployedOn = block.timestamp;
             lottery[lotteryId].partnershare = LotteryDatas.partnershare;
             lotteryDates[lotteryId].level = LotteryDates.level + 1;
             orglotterydata[LotteryDatas.ownerAddress].push(lotteryId);
@@ -848,9 +847,15 @@ contract Autobet is
         uint256 k = 0;
         for (uint256 i = 0; i < LotteryDatas.Tickets.length; i++) {
             useraddressdata[p++] = LotteryDatas.Tickets[i].userAddress;
-            for (uint256 j = 0; j < LotteryDatas.pickNumbers; j++) {
+            if (LotteryDatas.lotteryType != LotteryType.missile) {
+                for (uint256 j = 0; j < LotteryDatas.pickNumbers; j++) {
+                    userdata[k++] = uint256(
+                        LotteryDatas.Tickets[i].numbersPicked[j]
+                    );
+                }
+            } else {
                 userdata[k++] = uint256(
-                    LotteryDatas.Tickets[i].numbersPicked[j]
+                    LotteryDatas.Tickets[i].numbersPicked[0]
                 );
             }
         }
