@@ -1,4 +1,5 @@
 require("@nomiclabs/hardhat-waffle");
+require("@nomiclabs/hardhat-etherscan");
 
 module.exports = {
   defaultNetwork: "sepolia",
@@ -15,7 +16,7 @@ module.exports = {
       //url: "https://rpc-mumbai.maticvigil.com/v1/381a5a8b197cd8cb5667c5d5c6837a2bf5d975b7",
       accounts: [
         `fddc46294a47c4bb4df6f72a07f8f00ab05bc9ad0675d3ce60fa61c4c8bdd0a8`, //owner
-        `795cfdbde534c21845cec57f330c322e9c31f850e0d2cf3730dd9589498bcbcf`, //mark
+        `5c6cda40a3c3f6bd25edac19e33af3545ab1f36bd9233172074a48781f3d97a1`, //mark
         `b3c60f8c2948fa049baa700be9c861a6df538a7f7b6d58d5b48469f787b9e17e`,//a
         `88a2fb3261a22b02c1571f3db37a7c304ebc7b36d75f1c17e1614e4af7cdbbb0`,//b
         `452493a9cb54609355a5eb8a57ba3a0e2b68ac0e768078e1055bf0568632847a`,//c
@@ -24,10 +25,14 @@ module.exports = {
   gas: 3000000,
     }
   },
+  etherscan:{
+    apiKey: "876f953c246b466797e0c769427e78bd",
+
+  },
   solidity: {
     
     compilers:[
-      {version: "0.8.7",settings: {
+      {version: "0.8.18",settings: {
         optimizer: {
           enabled: true,
           runs: 1337,
