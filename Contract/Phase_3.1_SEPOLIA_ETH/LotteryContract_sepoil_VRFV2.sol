@@ -82,6 +82,7 @@ contract Autobet is
         uint256 partnerId;
         uint256 partnershare;
         uint256 rolloverperct;
+        uint256 deployedOn;
         address lotteryWinner;
         address ownerAddress;
         LotteryState status;
@@ -90,7 +91,6 @@ contract Autobet is
     }
     struct LotteryDate {
         uint256 lotteryId;
-        uint256 deployedOn;
         uint256 startTime; // Start time of Lottery.
         uint256 endTime; // End time of lottery.
         uint256 drawTime;
@@ -102,7 +102,6 @@ contract Autobet is
         bool fulfilled; // whether the request has been successfully fulfilled
         uint256[] randomWords;
     }
-    mapping(uint256 => RequestStatus) public s_requests;
 
     modifier onlyowner() {
         require(organisationbyaddr[msg.sender].active, "Not a organisation");
@@ -122,6 +121,7 @@ contract Autobet is
     // Cannot exceed VRFV2Wrapper.getConfig().maxNumWords.
     uint32 numWords = 1;
 
+    mapping(uint256 => RequestStatus) public s_requests;
     mapping(uint256 => OwnerData) public organisationbyid;
     mapping(address => OwnerData) public organisationbyaddr;
     mapping(address => PartnerData) public partnerbyaddr;
@@ -367,7 +367,7 @@ contract Autobet is
         lotteryDates[lotteryId].endTime = endtime;
         lotteryDates[lotteryId].lotteryId = lotteryId;
         lotteryDates[lotteryId].drawTime = drawtime;
-        lotteryDates[lotteryId].deployedOn = block.timestamp;
+        lottery[lotteryId].deployedOn = block.timestamp;
         lotteryDates[lotteryId].level = 1;
         if (lottype != LotteryType.missile) {
             lottery[lotteryId].capacity = capacity;
@@ -735,7 +735,7 @@ contract Autobet is
             lottery[lotteryId].ownerAddress = LotteryDatas.ownerAddress;
             lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
             lottery[lotteryId].minPlayers = LotteryDatas.minPlayers;
-            lotteryDates[lotteryId].deployedOn = block.timestamp;
+            lottery[lotteryId].deployedOn = block.timestamp;
             lottery[lotteryId].partnershare = LotteryDatas.partnershare;
             lotteryDates[lotteryId].level = LotteryDates.level + 1;
             orglotterydata[LotteryDatas.ownerAddress].push(lotteryId);

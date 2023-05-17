@@ -6,16 +6,58 @@ import "@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
 import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
 import "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
 
-contract LotteryData is 
+interface AutobetUser {
+    struct OwnerData {
+        bool active;
+        address userAddress;
+        address referee;
+        string name;
+        string phoneno;
+        uint256 dob;
+        string email;
+        string resiAddress;
+        uint256 id;
+        uint256 amountEarned;
+        uint256 commissionEarned;
+        uint256 maxPrize;
+        uint256 minPrize;
+    }
+
+    struct PartnerData {
+        string name;
+        string logoHash;
+        bool status;
+        string websiteAdd;
+        address partnerAddress;
+        uint256 createdOn;
+        uint256 partnerId;
+    }
+
+    function organisationbyid(
+        uint256 id
+    ) external view returns (OwnerData memory);
+
+    function organisationbyaddr(
+        address id
+    ) external view returns (OwnerData memory);
+
+    function refereeEarned(address id) external view returns (uint256);
+
+    function partnerbyaddr(
+        address id
+    ) external view returns (PartnerData memory);
+
+    function partnerbyid(uint256 id) external view returns (PartnerData memory);
+}
+
+contract AutobetLottery is
+    AutobetUser,
     AutomationCompatibleInterface,
     VRFV2WrapperConsumerBase,
     ConfirmedOwner
 {
     using SafeMath for uint256;
     uint256 public lotteryId = 1;
-    uint256 public ownerId = 1;
-    uint256 public partnerId = 0;
-    uint256 public bregisterFee = 10;
     uint256 public lotteryCreateFee = 10;
     uint256 public transferFeePerc = 10;
     uint256 public minimumRollover = 100;
@@ -24,6 +66,7 @@ contract LotteryData is
     address public tokenAddress;
     address public admin;
     bool public callresult;
+    AutobetUser users;
 
     enum LotteryState {
         open,
@@ -57,15 +100,16 @@ contract LotteryData is
         uint256 partnerId;
         uint256 partnershare;
         uint256 rolloverperct;
+        uint256 deployedOn;
         address lotteryWinner;
         address ownerAddress;
         LotteryState status;
         TicketsData[] Tickets;
         LotteryType lotteryType;
     }
+
     struct LotteryDate {
         uint256 lotteryId;
-        uint256 deployedOn;
         uint256 startTime; // Start time of Lottery.
         uint256 endTime; // End time of lottery.
         uint256 drawTime;
@@ -78,11 +122,6 @@ contract LotteryData is
         uint256[] randomWords;
     }
     mapping(uint256 => RequestStatus) public s_requests;
-
-    modifier onlyowner() {
-        require(organisationbyaddr[msg.sender].active, "Not a organisation");
-        _;
-    }
 
     modifier onlyAdmin() {
         require(admin == msg.sender, "not-a-admin");
@@ -97,20 +136,10 @@ contract LotteryData is
     // Cannot exceed VRFV2Wrapper.getConfig().maxNumWords.
     uint32 numWords = 1;
 
-    mapping(uint256 => OwnerData) public organisationbyid;
-    mapping(address => OwnerData) public organisationbyaddr;
-    // mapping(address => PartnerData) public partnerbyaddr;
-    // mapping(uint256 => PartnerData) public partnerbyid;
     // Mapping lottery id => details of the lottery.
     mapping(uint256 => LotteryData) public lottery;
     mapping(uint256 => LotteryDate) public lotteryDates;
 
-    mapping(address => uint256) public amountspend;
-    mapping(address => uint256) public refereeEarned;
-    mapping(address => uint256) public amountwon;
-
-    mapping(address => uint256) public tokenearned;
-    mapping(address => uint256) public tokenredeemed;
     mapping(uint256 => uint256) public lotterySales;
 
     mapping(uint256 => uint256) public requestIds;
@@ -155,9 +184,29 @@ contract LotteryData is
         uint256 winnerNum,
         uint256 date
     );
+    event LotteryBought(
+        uint256[] numbers,
+        uint256 indexed lotteryId,
+        uint256 boughtOn,
+        address indexed useraddress,
+        uint256 drawOn,
+        uint256 paid
+    );
+
+    event PartnerPaid(
+        address indexed partneradddress,
+        uint256 indexed lotteryId,
+        uint256 amountpaid
+    );
+    event WinnerPaid(
+        address indexed useraddressdata,
+        uint256 indexed lotteryId,
+        uint256 amountwon
+    );
 
     constructor(
-        address _tokenAddress
+        address _tokenAddress,
+        address _userAddress
     )
         ConfirmedOwner(msg.sender)
         VRFV2WrapperConsumerBase(
@@ -165,38 +214,9 @@ contract LotteryData is
             0xab18414CD93297B0d12ac29E63Ca20f515b3DB46
         )
     {
+        users = AutobetUser(_userAddress);
         admin = msg.sender;
         tokenAddress = _tokenAddress;
-        organisationbyaddr[msg.sender] = OwnerData({
-            id: ownerId,
-            userAddress: msg.sender,
-            referee: address(0),
-            name: "Autobet",
-            phoneno: "",
-            dob: 0,
-            resiAddress: "",
-            email: "autobetlottery@gmail.com",
-            active: true,
-            amountEarned: 0,
-            commissionEarned: 0,
-            minPrize: 0,
-            maxPrize: 1 * 10 ** 30
-        });
-        organisationbyid[ownerId++] = OwnerData({
-            id: ownerId,
-            userAddress: msg.sender,
-            referee: address(0),
-            name: "Autobet",
-            phoneno: "",
-            dob: 0,
-            resiAddress: "",
-            email: "autobetlottery@gmail.com",
-            active: true,
-            amountEarned: 0,
-            commissionEarned: 0,
-            minPrize: 0,
-            maxPrize: 1 * 10 ** 30
-        });
     }
 
     function setCallresult(bool _callresult) external {
@@ -215,13 +235,13 @@ contract LotteryData is
         uint256 rolloverperct,
         uint256 partnershare,
         LotteryType lottype
-    ) public payable onlyowner {
+    ) public payable {
         require(
-            organisationbyaddr[msg.sender].minPrize <= totalPrize,
+            users.organisationbyaddr[msg.sender].minPrize <= totalPrize,
             "Not allowed winning amount"
         );
         require(
-            organisationbyaddr[msg.sender].maxPrize >= totalPrize,
+            users.organisationbyaddr[msg.sender].maxPrize >= totalPrize,
             "Not allowed winning amount"
         );
         require(totalPrize > 0, "Low totalPrice");
@@ -261,7 +281,7 @@ contract LotteryData is
         lotteryDates[lotteryId].endTime = endtime;
         lotteryDates[lotteryId].lotteryId = lotteryId;
         lotteryDates[lotteryId].drawTime = drawtime;
-        lotteryDates[lotteryId].deployedOn = block.timestamp;
+        lottery[lotteryId].deployedOn = block.timestamp;
         lotteryDates[lotteryId].level = 1;
         if (lottype != LotteryType.missile) {
             lottery[lotteryId].capacity = capacity;
@@ -276,15 +296,19 @@ contract LotteryData is
         lottery[lotteryId].minPlayers =
             (totalPrize).div(entryfee) +
             (totalPrize).mul(10).div(entryfee).div(100);
-        orglotterydata[msg.sender].push(lotteryId);
-        organisationbyaddr[admin].commissionEarned += (totalPrize *
+        users.orglotterydata[msg.sender].push(lotteryId);
+        users.organisationbyaddr[admin].commissionEarned += (totalPrize *
             lotteryCreateFee).div(100);
-        if (organisationbyaddr[msg.sender].referee != address(0)) {
-            refereeEarned[organisationbyaddr[msg.sender].referee] =
-                refereeEarned[organisationbyaddr[msg.sender].referee] +
+        if (users.organisationbyaddr[msg.sender].referee != address(0)) {
+            users.refereeEarned[users.organisationbyaddr[msg.sender].referee] =
+                users.refereeEarned[
+                    users.organisationbyaddr[msg.sender].referee
+                ] +
                 totalPrize.div(100);
         }
-        partnerlotterydata[partnerbyid[partner].partnerAddress].push(lotteryId);
+        users
+            .partnerlotterydata[users.partnerbyid[partner].partnerAddress]
+            .push(lotteryId);
         emit CreatedLottery(
             lotteryId,
             entryfee,
@@ -293,27 +317,9 @@ contract LotteryData is
             capacity,
             msg.sender,
             startTime,
-            organisationbyaddr[msg.sender].id
+            users.organisationbyaddr[msg.sender].id
         );
         lotteryId++;
-    }
-
-
-    function updateMinMax(
-        uint256 _minPrize,
-        uint256 _maxPrize
-    ) public payable onlyowner {
-        require(_maxPrize > 0, "Cant be below zero");
-        require(_minPrize > 0, "Cant be below zero");
-        uint256 median = ((_minPrize.add(_maxPrize)).mul(10 ** 18)).div(2);
-        uint256 fees = (median * bregisterFee).div(100);
-        require(fees == msg.value, "Register Fee not matching");
-        uint256 ids = organisationbyaddr[msg.sender].id;
-        organisationbyaddr[msg.sender].minPrize = _minPrize;
-        organisationbyaddr[msg.sender].maxPrize = _maxPrize;
-        organisationbyid[ids].minPrize = _minPrize;
-        organisationbyid[ids].maxPrize = _maxPrize;
-        organisationbyaddr[admin].commissionEarned += msg.value;
     }
 
     function checkUpkeep(
@@ -464,11 +470,11 @@ contract LotteryData is
             lottery[lotteryId].ownerAddress = LotteryDatas.ownerAddress;
             lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
             lottery[lotteryId].minPlayers = LotteryDatas.minPlayers;
-            lotteryDates[lotteryId].deployedOn = block.timestamp;
+            lottery[lotteryId].deployedOn = block.timestamp;
             lottery[lotteryId].partnershare = LotteryDatas.partnershare;
             lotteryDates[lotteryId].level = LotteryDates.level + 1;
-            orglotterydata[LotteryDatas.ownerAddress].push(lotteryId);
-            organisationbyaddr[admin].commissionEarned += newTotalPrize;
+            users.orglotterydata[LotteryDatas.ownerAddress].push(lotteryId);
+            users.organisationbyaddr[admin].commissionEarned += newTotalPrize;
             emit CreatedLottery(
                 lotteryId,
                 LotteryDatas.entryFee,
@@ -477,7 +483,7 @@ contract LotteryData is
                 LotteryDatas.capacity,
                 LotteryDatas.ownerAddress,
                 LotteryDates.startTime,
-                organisationbyaddr[LotteryDatas.ownerAddress].id
+                users.organisationbyaddr[LotteryDatas.ownerAddress].id
             );
             lotteryId++;
         } else {
@@ -495,18 +501,19 @@ contract LotteryData is
             uint256 finalAmount = prizeAmt.sub(subtAmt);
             payable(useraddressdata).transfer(finalAmount);
             emit WinnerPaid(useraddressdata, lotteryid, finalAmount);
-            organisationbyaddr[admin].commissionEarned += subtAmt;
+            users.organisationbyaddr[admin].commissionEarned += subtAmt;
             uint256 totalSaleProfit = lotterySales[lotteryid] *
                 LotteryDatas.entryFee;
             uint256 partnerpay = totalSaleProfit
                 .mul(LotteryDatas.partnershare)
                 .div(100);
-            payable(partnerbyid[LotteryDatas.partnerId].partnerAddress)
+            payable(users.partnerbyid[LotteryDatas.partnerId].partnerAddress)
                 .transfer(partnerpay);
-            organisationbyaddr[LotteryDatas.ownerAddress]
+            users
+                .organisationbyaddr[LotteryDatas.ownerAddress]
                 .amountEarned -= partnerpay;
             emit PartnerPaid(
-                partnerbyid[LotteryDatas.partnerId].partnerAddress,
+                users.partnerbyid[LotteryDatas.partnerId].partnerAddress,
                 lotteryid,
                 partnerpay
             );
@@ -559,19 +566,21 @@ contract LotteryData is
     }
 
     function withdrawcommission() external payable {
-        uint256 amountEarned = organisationbyaddr[msg.sender].amountEarned;
+        uint256 amountEarned = users
+            .organisationbyaddr[msg.sender]
+            .amountEarned;
         uint256 subtAmt = amountEarned.mul(transferFeePerc).div(100);
         uint256 finalAmount = amountEarned.sub(subtAmt);
         payable(msg.sender).transfer(finalAmount);
-        organisationbyaddr[admin].commissionEarned += subtAmt;
-        organisationbyaddr[msg.sender].commissionEarned += finalAmount;
-        organisationbyaddr[msg.sender].amountEarned = 0;
+        users.organisationbyaddr[admin].commissionEarned += subtAmt;
+        users.organisationbyaddr[msg.sender].commissionEarned += finalAmount;
+        users.organisationbyaddr[msg.sender].amountEarned = 0;
     }
 
     function withdrawAdmin() external payable onlyAdmin {
-        uint256 amountEarned = organisationbyaddr[admin].commissionEarned;
+        uint256 amountEarned = users.organisationbyaddr[admin].commissionEarned;
         payable((msg.sender)).transfer(amountEarned);
-        organisationbyaddr[admin].commissionEarned = 0;
+        users.organisationbyaddr[admin].commissionEarned = 0;
     }
 
     function withdrawETH() external payable onlyAdmin {
@@ -607,12 +616,15 @@ contract LotteryData is
 
     function redeemTokens() external {
         require(
-            tokenearned[msg.sender] <=
+            users.tokenearned[msg.sender] <=
                 IERC20(tokenAddress).balanceOf(address(this)),
             "low balance"
         );
-        IERC20(tokenAddress).transfer(msg.sender, tokenearned[msg.sender]);
-        tokenearned[msg.sender] = 0;
+        IERC20(tokenAddress).transfer(
+            msg.sender,
+            users.tokenearned[msg.sender]
+        );
+        users.tokenearned[msg.sender] = 0;
     }
 
     function transferToken(
@@ -629,78 +641,9 @@ contract LotteryData is
 
     function transferAdmin(address newAdmin) external onlyAdmin {
         require(newAdmin != address(0));
-        organisationbyaddr[newAdmin] = organisationbyaddr[msg.sender];
+        users.organisationbyaddr[newAdmin] = users.organisationbyaddr[
+            msg.sender
+        ];
         admin = newAdmin;
-    }
-
-    function addPartnerDetails(
-        string memory _name,
-        string memory _logoHash,
-        bool _status,
-        string memory _websiteAdd,
-        address _partnerAddress,
-        uint256 _createdOn
-    ) external {
-        assert(_partnerAddress != address(0));
-        require(
-            partnerbyaddr[_partnerAddress].partnerAddress == address(0),
-            "Already registered"
-        );
-        partnerId++;
-        partnerbyaddr[_partnerAddress] = PartnerData({
-            partnerId: partnerId,
-            name: _name,
-            logoHash: _logoHash,
-            status: _status,
-            websiteAdd: _websiteAdd,
-            partnerAddress: _partnerAddress,
-            createdOn: _createdOn
-        });
-        partnerbyid[partnerId] = PartnerData({
-            partnerId: partnerId,
-            name: _name,
-            logoHash: _logoHash,
-            status: _status,
-            websiteAdd: _websiteAdd,
-            partnerAddress: _partnerAddress,
-            createdOn: _createdOn
-        });
-    }
-
-    function EditPartnerDetails(
-        string memory _name,
-        string memory _logoHash,
-        bool _status,
-        string memory _websiteAdd,
-        address _partnerAddress,
-        uint256 _createdOn
-    ) external {
-        assert(_partnerAddress != address(0));
-        require(
-            partnerbyaddr[_partnerAddress].partnerAddress != address(0),
-            "Not Already registered"
-        );
-        require(
-            partnerbyaddr[_partnerAddress].partnerAddress == _partnerAddress,
-            "Wrong address to update"
-        );
-        partnerbyaddr[_partnerAddress] = PartnerData({
-            partnerId: partnerbyaddr[_partnerAddress].partnerId,
-            name: _name,
-            logoHash: _logoHash,
-            status: _status,
-            websiteAdd: _websiteAdd,
-            partnerAddress: _partnerAddress,
-            createdOn: _createdOn
-        });
-        partnerbyid[partnerbyaddr[_partnerAddress].partnerId] = PartnerData({
-            partnerId: partnerbyaddr[_partnerAddress].partnerId,
-            name: _name,
-            logoHash: _logoHash,
-            status: _status,
-            websiteAdd: _websiteAdd,
-            partnerAddress: _partnerAddress,
-            createdOn: _createdOn
-        });
     }
 }
