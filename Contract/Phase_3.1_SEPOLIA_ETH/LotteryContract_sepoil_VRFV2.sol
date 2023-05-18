@@ -391,10 +391,11 @@ contract Autobet is
             require(picknumbers <= 10, " Only 10 combination allowed");
         }
         lotteryDates[lotteryId].level = 1;
+
         commonLotteryDetails(
             lotteryId,
-            picknumbers,
             entryfee,
+            picknumbers,
             totalPrize,
             startTime,
             endtime,
@@ -492,7 +493,6 @@ contract Autobet is
             "slots size not meet"
         );
         require(!TicketsList[hash], "Number Already claimed");
-
         if (LotteryDatas.minPlayers <= lotterySales[lotteryid]) {
             require(
                 block.timestamp < LotteryDates.endTime,
@@ -786,8 +786,8 @@ contract Autobet is
         if (newTotalPrize >= minimumRollover) {
             commonLotteryDetails(
                 lotteryId,
-                LotteryDatas.pickNumbers,
                 LotteryDatas.entryFee,
+                LotteryDatas.pickNumbers,
                 newTotalPrize,
                 LotteryDates.startTime,
                 LotteryDates.endTime,
