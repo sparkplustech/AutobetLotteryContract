@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
 import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
 import "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 contract Autobet is
     AutomationCompatibleInterface,
@@ -30,7 +31,9 @@ contract Autobet is
         close,
         resultdone,
         rollover,
-        blocked
+        blocked,
+        rolloverOpen,
+        creating
     }
 
     enum LotteryType {
@@ -100,6 +103,7 @@ contract Autobet is
     struct RequestStatus {
         uint256 paid; // amount paid in link
         bool fulfilled; // whether the request has been successfully fulfilled
+        bool draw;
         uint256[] randomWords;
     }
 
@@ -145,7 +149,7 @@ contract Autobet is
 
     mapping(uint256 => uint256[]) public minelottery;
 
-    mapping(uint256 => uint256) private missilecodes;
+    mapping(uint256 => string) public missilecodes;
 
     mapping(address => uint256[]) private userlotterydata;
     mapping(address => uint256[]) private partnerlotterydata;
@@ -179,7 +183,6 @@ contract Autobet is
         uint256 indexed lotteryId,
         uint256 boughtOn,
         address indexed useraddress,
-        uint256 drawOn,
         uint256 paid
     );
 
@@ -254,6 +257,39 @@ contract Autobet is
 
     function setCallresult(bool _callresult) external {
         callresult = _callresult;
+    }
+
+    function substring(
+        string memory str,
+        uint256 startIndex,
+        uint256 endIndex
+    ) public pure returns (string memory) {
+        bytes memory strBytes = bytes(str);
+        bytes memory result = new bytes(endIndex - startIndex);
+        for (uint i = startIndex; i < endIndex; i++) {
+            result[i - startIndex] = strBytes[i];
+        }
+        return string(result);
+    }
+
+    function compareStrings(
+        string memory a,
+        string memory b
+    ) internal pure returns (bool) {
+        return (keccak256(abi.encodePacked((a))) ==
+            keccak256(abi.encodePacked((b))));
+    }
+
+    function stringToUint(string memory s) public pure returns (uint) {
+        bytes memory b = bytes(s);
+        uint result = 0;
+        for (uint256 i = 0; i < b.length; i++) {
+            uint256 c = uint256(uint8(b[i]));
+            if (c >= 48 && c <= 57) {
+                result = result * 10 + (c - 48);
+            }
+        }
+        return result;
     }
 
     function addOrganisation(
@@ -347,38 +383,30 @@ contract Autobet is
             rolloverperct <= 50,
             "Rollover percentage can't be more than 50"
         );
-        if (lottype == LotteryType.revolver) {
-            require(capacity > 5, "Capacity should be greater than 5");
+        if (lottype == LotteryType.revolver || lottype == LotteryType.mine) {
             require(picknumbers == 1, "Only 1 number allowed");
         }
-        if (lottype == LotteryType.mine) {
-            require(picknumbers == 1, "Only 1 number allowed");
-        }
+
         if (lottype == LotteryType.missile) {
             require(picknumbers <= 10, " Only 10 combination allowed");
         }
-        lottery[lotteryId].partnerId = partner;
-        lottery[lotteryId].lotteryId = lotteryId;
-        lottery[lotteryId].rolloverperct = rolloverperct;
-        lottery[lotteryId].entryFee = entryfee;
-        lottery[lotteryId].pickNumbers = picknumbers;
-        lottery[lotteryId].totalPrize = totalPrize;
-        lotteryDates[lotteryId].startTime = startTime;
-        lotteryDates[lotteryId].endTime = endtime;
-        lotteryDates[lotteryId].lotteryId = lotteryId;
-        lotteryDates[lotteryId].drawTime = drawtime;
-        lottery[lotteryId].deployedOn = block.timestamp;
         lotteryDates[lotteryId].level = 1;
-        if (lottype != LotteryType.missile) {
-            lottery[lotteryId].capacity = capacity;
-        } else {
-            missilecodes[lotteryId] = capacity;
-            capacity = 0;
-        }
-        lottery[lotteryId].status = LotteryState.open;
-        lottery[lotteryId].ownerAddress = msg.sender;
+        commonLotteryDetails(
+            lotteryId,
+            picknumbers,
+            entryfee,
+            totalPrize,
+            startTime,
+            endtime,
+            drawtime,
+            capacity,
+            partner,
+            rolloverperct,
+            partnershare,
+            msg.sender
+        );
         lottery[lotteryId].lotteryType = lottype;
-        lottery[lotteryId].partnershare = partnershare;
+
         lottery[lotteryId].minPlayers =
             (totalPrize).div(entryfee) +
             (totalPrize).mul(10).div(entryfee).div(100);
@@ -391,6 +419,23 @@ contract Autobet is
                 totalPrize.div(100);
         }
         partnerlotterydata[partnerbyid[partner].partnerAddress].push(lotteryId);
+        if (lottype != LotteryType.missile) {
+            lottery[lotteryId].status = LotteryState.open;
+        } else {
+            lottery[lotteryId].status = LotteryState.creating;
+            uint256 _requestId = requestRandomness(
+                callbackGasLimit,
+                requestConfirmations,
+                numWords
+            );
+            requestIds[_requestId] = lotteryId;
+            s_requests[_requestId] = RequestStatus({
+                paid: VRF_V2_WRAPPER.calculateRequestPrice(callbackGasLimit),
+                randomWords: new uint256[](0),
+                draw: false,
+                fulfilled: false
+            });
+        }
         emit CreatedLottery(
             lotteryId,
             entryfee,
@@ -402,6 +447,36 @@ contract Autobet is
             organisationbyaddr[msg.sender].id
         );
         lotteryId++;
+    }
+
+    function commonLotteryDetails(
+        uint256 _lotteryId,
+        uint256 entryfee,
+        uint256 picknumbers,
+        uint256 totalPrize,
+        uint256 startTime,
+        uint256 endtime,
+        uint256 drawtime,
+        uint256 capacity,
+        uint256 partner,
+        uint256 rolloverperct,
+        uint256 partnershare,
+        address owner
+    ) internal {
+        lottery[_lotteryId].partnerId = partner;
+        lottery[_lotteryId].lotteryId = _lotteryId;
+        lottery[_lotteryId].rolloverperct = rolloverperct;
+        lottery[_lotteryId].entryFee = entryfee;
+        lottery[_lotteryId].pickNumbers = picknumbers;
+        lottery[_lotteryId].totalPrize = totalPrize;
+        lotteryDates[_lotteryId].startTime = startTime;
+        lotteryDates[_lotteryId].endTime = endtime;
+        lotteryDates[_lotteryId].lotteryId = _lotteryId;
+        lotteryDates[_lotteryId].drawTime = drawtime;
+        lottery[_lotteryId].deployedOn = block.timestamp;
+        lottery[_lotteryId].capacity = capacity;
+        lottery[_lotteryId].ownerAddress = owner;
+        lottery[_lotteryId].partnershare = partnershare;
     }
 
     function buyNormalLottery(
@@ -435,36 +510,11 @@ contract Autobet is
                 LotteryDatas.rolloverperct.mul(86400)
             );
         }
-
         TicketsList[hash] = true;
-        lotteryTickets[lotteryid][msg.sender] += 1;
-        LotteryDatas.Tickets.push(
-            TicketsData({
-                lotteryId: lotteryid,
-                userAddress: msg.sender,
-                numbersPicked: numbers,
-                boughtOn: block.timestamp
-            })
-        );
-        amountspend[msg.sender] += msg.value;
-        organisationbyaddr[LotteryDatas.ownerAddress].amountEarned += msg.value;
-        userlotterydata[msg.sender].push(lotteryid);
-        lotterySales[lotteryid]++;
-        tokenearned[msg.sender] += (
-            (LotteryDatas.entryFee * tokenEarnPercent).div(100)
-        );
+        doInternalMaths(lotteryid, msg.sender, msg.value, numbers);
         if (LotteryDatas.lotteryType == LotteryType.mine) {
             minelottery[lotteryid].push(numbers[0]);
         }
-
-        emit LotteryBought(
-            numbers,
-            lotteryid,
-            block.timestamp,
-            msg.sender,
-            LotteryDates.drawTime,
-            LotteryDatas.entryFee
-        );
     }
 
     function buySpinnerLottery(
@@ -472,73 +522,30 @@ contract Autobet is
         uint256 lotteryid
     ) public payable {
         LotteryData storage LotteryDatas = lottery[lotteryid];
-        LotteryDate storage LotteryDates = lotteryDates[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
         require(
-            LotteryDatas.status == LotteryState.open,
+            (LotteryDatas.status == LotteryState.open ||
+                LotteryDatas.status == LotteryState.rolloverOpen),
             "Other player playing"
         );
         uint256[] memory numbarray = new uint256[](1);
         numbarray[0] = numbers;
         LotteryDatas.status = LotteryState.blocked;
-        lotteryTickets[lotteryid][msg.sender] += 1;
-        LotteryDatas.Tickets.push(
-            TicketsData({
-                lotteryId: lotteryid,
-                userAddress: msg.sender,
-                numbersPicked: numbarray,
-                boughtOn: block.timestamp
-            })
-        );
-        amountspend[msg.sender] += msg.value;
-        organisationbyaddr[LotteryDatas.ownerAddress].amountEarned += msg.value;
-        userlotterydata[msg.sender].push(lotteryid);
-        lotterySales[lotteryid]++;
-        tokenearned[msg.sender] += (
-            (LotteryDatas.entryFee * tokenEarnPercent).div(100)
-        );
-        emit LotteryBought(
-            numbarray,
-            lotteryid,
-            block.timestamp,
-            msg.sender,
-            LotteryDates.drawTime,
-            LotteryDatas.entryFee
-        );
+        doInternalMaths(lotteryid, msg.sender, msg.value, numbarray);
         getWinners(lotteryid, numbers, msg.sender);
     }
 
-    function buyMissilelottery(uint256 code, uint256 lotteryid) public payable {
+    function buyMissilelottery(
+        string memory code,
+        uint256 lotteryid
+    ) public payable {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
         uint256[] memory numbarray = new uint256[](1);
-        numbarray[0] = code;
-        lotteryTickets[lotteryid][msg.sender] += 1;
-        LotteryDatas.Tickets.push(
-            TicketsData({
-                lotteryId: lotteryid,
-                userAddress: msg.sender,
-                numbersPicked: numbarray,
-                boughtOn: block.timestamp
-            })
-        );
-        amountspend[msg.sender] += msg.value;
-        organisationbyaddr[LotteryDatas.ownerAddress].amountEarned += msg.value;
-        userlotterydata[msg.sender].push(lotteryid);
-        lotterySales[lotteryid]++;
-        tokenearned[msg.sender] += (
-            (LotteryDatas.entryFee * tokenEarnPercent).div(100)
-        );
-        emit LotteryBought(
-            numbarray,
-            lotteryid,
-            block.timestamp,
-            msg.sender,
-            LotteryDates.drawTime,
-            LotteryDatas.entryFee
-        );
-        if (code == missilecodes[lotteryid]) {
+        numbarray[0] = stringToUint(code);
+        doInternalMaths(lotteryid, msg.sender, msg.value, numbarray);
+        if (compareStrings(code, missilecodes[lotteryid])) {
             requestIds[
                 79605497052302279665647778512986110346654820553100948541933326299138325266895
             ] = lotteryid;
@@ -567,6 +574,109 @@ contract Autobet is
                     .mul(LotteryDatas.rolloverperct)
                     .div(100);
             }
+        }
+    }
+
+    function doInternalMaths(
+        uint256 lotteryid,
+        address callerAdd,
+        uint256 amt,
+        uint256[] memory numbarray
+    ) internal {
+        LotteryData storage LotteryDatas = lottery[lotteryid];
+        lotteryTickets[lotteryid][callerAdd] += 1;
+        LotteryDatas.Tickets.push(
+            TicketsData({
+                lotteryId: lotteryid,
+                userAddress: callerAdd,
+                numbersPicked: numbarray,
+                boughtOn: block.timestamp
+            })
+        );
+        amountspend[callerAdd] += amt;
+        organisationbyaddr[LotteryDatas.ownerAddress].amountEarned += amt;
+        userlotterydata[callerAdd].push(lotteryid);
+        lotterySales[lotteryid]++;
+        tokenearned[callerAdd] += (
+            (LotteryDatas.entryFee * tokenEarnPercent).div(100)
+        );
+        emit LotteryBought(
+            numbarray,
+            lotteryid,
+            block.timestamp,
+            callerAdd,
+            LotteryDatas.entryFee
+        );
+    }
+
+    function getWinners(uint256 _lotteryId) internal {
+        uint256 _requestId = requestRandomness(
+            callbackGasLimit,
+            requestConfirmations,
+            numWords
+        );
+        requestIds[_requestId] = _lotteryId;
+        s_requests[_requestId] = RequestStatus({
+            paid: VRF_V2_WRAPPER.calculateRequestPrice(callbackGasLimit),
+            randomWords: new uint256[](0),
+            draw: true,
+            fulfilled: false
+        });
+    }
+
+    function getWinners(
+        uint256 _lotteryId,
+        uint256 selectedNum,
+        address buyer
+    ) internal {
+        uint256 _requestId = requestRandomness(
+            callbackGasLimit,
+            requestConfirmations,
+            numWords
+        );
+        requestIds[_requestId] = _lotteryId;
+        spinNumbers[_requestId] = selectedNum;
+        spinBuyer[_requestId] = buyer;
+        s_requests[_requestId] = RequestStatus({
+            paid: VRF_V2_WRAPPER.calculateRequestPrice(callbackGasLimit),
+            randomWords: new uint256[](0),
+            draw: true,
+            fulfilled: false
+        });
+    }
+
+    function fulfillRandomWords(
+        uint256 _requestId,
+        uint256[] memory _randomness
+    ) internal override {
+        require(s_requests[_requestId].paid > 0, "request not found");
+        s_requests[_requestId].fulfilled = true;
+        s_requests[_requestId].randomWords = _randomness;
+        randomNumber[_requestId] = _randomness[0];
+        if (s_requests[_requestId].draw) {
+            getdraw(
+                randomNumber[_requestId],
+                requestIds[_requestId],
+                _requestId
+            );
+        } else {
+            uint8 digits = 0;
+            uint256 number = _randomness[0];
+            while (number != 0) {
+                number /= 10;
+                digits++;
+            }
+            uint random = (uint(
+                keccak256(abi.encodePacked(block.timestamp, msg.sender, digits))
+            ) % digits) - lottery[requestIds[_requestId]].pickNumbers;
+            string memory numString = Strings.toString(_randomness[0]);
+            string memory textTrim = substring(
+                numString,
+                random,
+                random + lottery[requestIds[_requestId]].pickNumbers
+            );
+            lottery[requestIds[_requestId]].status = LotteryState.open;
+            missilecodes[requestIds[_requestId]] = textTrim;
         }
     }
 
@@ -628,51 +738,6 @@ contract Autobet is
         }
     }
 
-    function getWinners(uint256 i) internal {
-        uint256 _requestId = requestRandomness(
-            callbackGasLimit,
-            requestConfirmations,
-            numWords
-        );
-        requestIds[_requestId] = i;
-        s_requests[_requestId] = RequestStatus({
-            paid: VRF_V2_WRAPPER.calculateRequestPrice(callbackGasLimit),
-            randomWords: new uint256[](0),
-            fulfilled: false
-        });
-    }
-
-    function getWinners(
-        uint256 i,
-        uint256 selectedNum,
-        address buyer
-    ) internal {
-        uint256 _requestId = requestRandomness(
-            callbackGasLimit,
-            requestConfirmations,
-            numWords
-        );
-        requestIds[_requestId] = i;
-        spinNumbers[_requestId] = selectedNum;
-        spinBuyer[_requestId] = buyer;
-        s_requests[_requestId] = RequestStatus({
-            paid: VRF_V2_WRAPPER.calculateRequestPrice(callbackGasLimit),
-            randomWords: new uint256[](0),
-            fulfilled: false
-        });
-    }
-
-    function fulfillRandomWords(
-        uint256 _requestId,
-        uint256[] memory _randomness
-    ) internal override {
-        require(s_requests[_requestId].paid > 0, "request not found");
-        s_requests[_requestId].fulfilled = true;
-        s_requests[_requestId].randomWords = _randomness;
-        randomNumber[_requestId] = _randomness[0];
-        getdraw(randomNumber[_requestId], requestIds[_requestId], _requestId);
-    }
-
     function getdraw(
         uint256 num,
         uint256 lotteryid,
@@ -719,24 +784,25 @@ contract Autobet is
         uint256 newTotalPrize = LotteryDatas.totalPrize +
             LotteryDatas.entryFee.mul(LotteryDatas.rolloverperct).div(100);
         if (newTotalPrize >= minimumRollover) {
+            commonLotteryDetails(
+                lotteryId,
+                LotteryDatas.pickNumbers,
+                LotteryDatas.entryFee,
+                newTotalPrize,
+                LotteryDates.startTime,
+                LotteryDates.endTime,
+                LotteryDates.drawTime,
+                LotteryDatas.capacity,
+                LotteryDatas.partnerId,
+                LotteryDatas.rolloverperct,
+                LotteryDatas.partnershare,
+                LotteryDatas.ownerAddress
+            );
             LotteryDatas.status = LotteryState.rollover;
-            lottery[lotteryId].partnerId = LotteryDatas.partnerId;
-            lottery[lotteryId].lotteryId = lotteryId;
-            lottery[lotteryId].entryFee = LotteryDatas.entryFee;
-            lottery[lotteryId].pickNumbers = LotteryDatas.pickNumbers;
-            lottery[lotteryId].totalPrize = newTotalPrize;
-            lotteryDates[lotteryId].startTime = LotteryDates.startTime;
-            lottery[lotteryId].rolloverperct = LotteryDatas.rolloverperct;
-            lotteryDates[lotteryId].endTime = LotteryDates.endTime;
-            lotteryDates[lotteryId].lotteryId = lotteryId;
-            lotteryDates[lotteryId].drawTime = LotteryDates.drawTime;
-            lottery[lotteryId].capacity = LotteryDatas.capacity;
-            lottery[lotteryId].status = LotteryState.open;
-            lottery[lotteryId].ownerAddress = LotteryDatas.ownerAddress;
+            lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
+            lottery[lotteryId].status = LotteryState.rolloverOpen;
             lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
             lottery[lotteryId].minPlayers = LotteryDatas.minPlayers;
-            lottery[lotteryId].deployedOn = block.timestamp;
-            lottery[lotteryId].partnershare = LotteryDatas.partnershare;
             lotteryDates[lotteryId].level = LotteryDates.level + 1;
             orglotterydata[LotteryDatas.ownerAddress].push(lotteryId);
             organisationbyaddr[admin].commissionEarned += newTotalPrize;
@@ -910,18 +976,12 @@ contract Autobet is
         uint256 _lotteryCreateFee,
         uint256 _transferFeePerc,
         uint256 _tokenEarnPercent,
-        uint256 _minroll
+        uint256 _minroll,
+        uint256 _rolloverday
     ) external onlyAdmin {
         lotteryCreateFee = _lotteryCreateFee;
         transferFeePerc = _transferFeePerc;
         tokenEarnPercent = _tokenEarnPercent;
-        minimumRollover = _minroll;
-    }
-
-    function updateMinrollover(
-        uint256 _minroll,
-        uint256 _rolloverday
-    ) external onlyAdmin {
         minimumRollover = _minroll;
         defaultRolloverday = _rolloverday;
     }
@@ -954,7 +1014,7 @@ contract Autobet is
         admin = newAdmin;
     }
 
-    function addPartnerDetails(
+    function addEditPartnerDetails(
         string memory _name,
         string memory _logoHash,
         bool _status,
@@ -963,65 +1023,47 @@ contract Autobet is
         uint256 _createdOn
     ) external {
         assert(_partnerAddress != address(0));
-        require(
-            partnerbyaddr[_partnerAddress].partnerAddress == address(0),
-            "Already registered"
-        );
-        partnerId++;
-        partnerbyaddr[_partnerAddress] = PartnerData({
-            partnerId: partnerId,
-            name: _name,
-            logoHash: _logoHash,
-            status: _status,
-            websiteAdd: _websiteAdd,
-            partnerAddress: _partnerAddress,
-            createdOn: _createdOn
-        });
-        partnerbyid[partnerId] = PartnerData({
-            partnerId: partnerId,
-            name: _name,
-            logoHash: _logoHash,
-            status: _status,
-            websiteAdd: _websiteAdd,
-            partnerAddress: _partnerAddress,
-            createdOn: _createdOn
-        });
-    }
-
-    function EditPartnerDetails(
-        string memory _name,
-        string memory _logoHash,
-        bool _status,
-        string memory _websiteAdd,
-        address _partnerAddress,
-        uint256 _createdOn
-    ) external {
-        assert(_partnerAddress != address(0));
-        require(
-            partnerbyaddr[_partnerAddress].partnerAddress != address(0),
-            "Not Already registered"
-        );
-        require(
-            partnerbyaddr[_partnerAddress].partnerAddress == _partnerAddress,
-            "Wrong address to update"
-        );
-        partnerbyaddr[_partnerAddress] = PartnerData({
-            partnerId: partnerbyaddr[_partnerAddress].partnerId,
-            name: _name,
-            logoHash: _logoHash,
-            status: _status,
-            websiteAdd: _websiteAdd,
-            partnerAddress: _partnerAddress,
-            createdOn: _createdOn
-        });
-        partnerbyid[partnerbyaddr[_partnerAddress].partnerId] = PartnerData({
-            partnerId: partnerbyaddr[_partnerAddress].partnerId,
-            name: _name,
-            logoHash: _logoHash,
-            status: _status,
-            websiteAdd: _websiteAdd,
-            partnerAddress: _partnerAddress,
-            createdOn: _createdOn
-        });
+        if (partnerbyaddr[_partnerAddress].partnerAddress == address(0)) {
+            partnerId++;
+            partnerbyaddr[_partnerAddress] = PartnerData({
+                partnerId: partnerId,
+                name: _name,
+                logoHash: _logoHash,
+                status: _status,
+                websiteAdd: _websiteAdd,
+                partnerAddress: _partnerAddress,
+                createdOn: _createdOn
+            });
+            partnerbyid[partnerId] = PartnerData({
+                partnerId: partnerId,
+                name: _name,
+                logoHash: _logoHash,
+                status: _status,
+                websiteAdd: _websiteAdd,
+                partnerAddress: _partnerAddress,
+                createdOn: _createdOn
+            });
+        } else {
+            partnerbyaddr[_partnerAddress] = PartnerData({
+                partnerId: partnerbyaddr[_partnerAddress].partnerId,
+                name: _name,
+                logoHash: _logoHash,
+                status: _status,
+                websiteAdd: _websiteAdd,
+                partnerAddress: _partnerAddress,
+                createdOn: _createdOn
+            });
+            partnerbyid[
+                partnerbyaddr[_partnerAddress].partnerId
+            ] = PartnerData({
+                partnerId: partnerbyaddr[_partnerAddress].partnerId,
+                name: _name,
+                logoHash: _logoHash,
+                status: _status,
+                websiteAdd: _websiteAdd,
+                partnerAddress: _partnerAddress,
+                createdOn: _createdOn
+            });
+        }
     }
 }
