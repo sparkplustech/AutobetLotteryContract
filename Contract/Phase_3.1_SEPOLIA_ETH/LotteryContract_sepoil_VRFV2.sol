@@ -149,7 +149,7 @@ contract Autobet is
 
     mapping(uint256 => uint256[]) public minelottery;
 
-    mapping(uint256 => string) public missilecodes;
+    mapping(uint256 => string) private missilecodes;
 
     mapping(address => uint256[]) private userlotterydata;
     mapping(address => uint256[]) private partnerlotterydata;
@@ -366,6 +366,11 @@ contract Autobet is
             organisationbyaddr[msg.sender].maxPrize >= totalPrize,
             "Not allowed winning amount"
         );
+        require(
+            LINK.balanceOf(address(this)) >= 1,
+            "Not enough LINK - fill contract with faucet"
+        );
+
         require(totalPrize > 0, "Low totalPrice");
         require(
             partnershare > 0 && partnershare <= 100,
@@ -391,7 +396,6 @@ contract Autobet is
             require(picknumbers <= 10, " Only 10 combination allowed");
         }
         lotteryDates[lotteryId].level = 1;
-
         commonLotteryDetails(
             lotteryId,
             entryfee,
@@ -407,19 +411,15 @@ contract Autobet is
             msg.sender
         );
         lottery[lotteryId].lotteryType = lottype;
-
         lottery[lotteryId].minPlayers =
             (totalPrize).div(entryfee) +
             (totalPrize).mul(10).div(entryfee).div(100);
-        orglotterydata[msg.sender].push(lotteryId);
-        organisationbyaddr[admin].commissionEarned += (totalPrize *
-            lotteryCreateFee).div(100);
+
         if (organisationbyaddr[msg.sender].referee != address(0)) {
             refereeEarned[organisationbyaddr[msg.sender].referee] =
                 refereeEarned[organisationbyaddr[msg.sender].referee] +
                 totalPrize.div(100);
         }
-        partnerlotterydata[partnerbyid[partner].partnerAddress].push(lotteryId);
         if (lottype != LotteryType.missile) {
             lottery[lotteryId].status = LotteryState.open;
         } else {
@@ -429,13 +429,7 @@ contract Autobet is
                 requestConfirmations,
                 numWords
             );
-            requestIds[_requestId] = lotteryId;
-            s_requests[_requestId] = RequestStatus({
-                paid: VRF_V2_WRAPPER.calculateRequestPrice(callbackGasLimit),
-                randomWords: new uint256[](0),
-                draw: false,
-                fulfilled: false
-            });
+            storeRequestedId(_requestId, lotteryId, false);
         }
         emit CreatedLottery(
             lotteryId,
@@ -478,6 +472,12 @@ contract Autobet is
         lottery[_lotteryId].capacity = capacity;
         lottery[_lotteryId].ownerAddress = owner;
         lottery[_lotteryId].partnershare = partnershare;
+        orglotterydata[owner].push(_lotteryId);
+        partnerlotterydata[partnerbyid[partner].partnerAddress].push(
+            _lotteryId
+        );
+        organisationbyaddr[admin].commissionEarned += (totalPrize *
+            lotteryCreateFee).div(100);
     }
 
     function buyNormalLottery(
@@ -506,6 +506,7 @@ contract Autobet is
             LotteryDates.drawTime = LotteryDates.drawTime.add(
                 LotteryDatas.rolloverperct.mul(86400)
             );
+            LotteryDatas.status = LotteryState.rolloverOpen;
             LotteryDates.endTime = LotteryDates.endTime.add(
                 LotteryDatas.rolloverperct.mul(86400)
             );
@@ -564,6 +565,7 @@ contract Autobet is
                 LotteryDates.endTime = LotteryDates.endTime.add(
                     defaultRolloverday.mul(86400)
                 );
+                LotteryDatas.status = LotteryState.rolloverOpen;
                 uint256 totalSaleProfit = lotterySales[lotteryid] *
                     LotteryDatas.entryFee;
                 LotteryDatas.totalPrize = LotteryDatas.totalPrize.add(
@@ -615,13 +617,7 @@ contract Autobet is
             requestConfirmations,
             numWords
         );
-        requestIds[_requestId] = _lotteryId;
-        s_requests[_requestId] = RequestStatus({
-            paid: VRF_V2_WRAPPER.calculateRequestPrice(callbackGasLimit),
-            randomWords: new uint256[](0),
-            draw: true,
-            fulfilled: false
-        });
+        storeRequestedId(_requestId, _lotteryId, true);
     }
 
     function getWinners(
@@ -634,13 +630,21 @@ contract Autobet is
             requestConfirmations,
             numWords
         );
-        requestIds[_requestId] = _lotteryId;
         spinNumbers[_requestId] = selectedNum;
         spinBuyer[_requestId] = buyer;
+        storeRequestedId(_requestId, _lotteryId, true);
+    }
+
+    function storeRequestedId(
+        uint256 _requestId,
+        uint256 _lotteryId,
+        bool _draw
+    ) internal {
+        requestIds[_requestId] = _lotteryId;
         s_requests[_requestId] = RequestStatus({
             paid: VRF_V2_WRAPPER.calculateRequestPrice(callbackGasLimit),
             randomWords: new uint256[](0),
-            draw: true,
+            draw: _draw,
             fulfilled: false
         });
     }
@@ -701,6 +705,10 @@ contract Autobet is
         bytes calldata
     ) external view override returns (bool upkeepNeeded, bytes memory result) {
         upkeepNeeded = false;
+        require(
+            LINK.balanceOf(address(this)) >= 1,
+            "Not enough LINK - fill contract with faucet"
+        );
         require(!callresult, "Another Result running");
         for (uint256 i = 1; i < lotteryId; i++) {
             if (
@@ -799,13 +807,10 @@ contract Autobet is
                 LotteryDatas.ownerAddress
             );
             LotteryDatas.status = LotteryState.rollover;
-            lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
             lottery[lotteryId].status = LotteryState.rolloverOpen;
             lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
             lottery[lotteryId].minPlayers = LotteryDatas.minPlayers;
             lotteryDates[lotteryId].level = LotteryDates.level + 1;
-            orglotterydata[LotteryDatas.ownerAddress].push(lotteryId);
-            organisationbyaddr[admin].commissionEarned += newTotalPrize;
             emit CreatedLottery(
                 lotteryId,
                 LotteryDatas.entryFee,
