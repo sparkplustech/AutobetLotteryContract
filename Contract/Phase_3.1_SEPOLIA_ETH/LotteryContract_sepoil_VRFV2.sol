@@ -22,6 +22,7 @@ contract Autobet is
     uint256 public minimumRollover = 100;
     uint256 public tokenEarnPercent = 5;
     uint256 public defaultRolloverday = 5;
+    uint256 public totalSale = 0;
     address public tokenAddress;
     address public admin;
     bool public callresult;
@@ -165,17 +166,6 @@ contract Autobet is
         address _owner,
         string _name,
         address _referee
-    );
-
-    event CreatedLottery(
-        uint256 indexed lotteryId,
-        uint256 entryfee,
-        uint256 picknumbers,
-        uint256 totalPrize,
-        uint256 capacity,
-        address indexed owner,
-        uint256 startTime,
-        uint256 indexed ownerid
     );
 
     event LotteryBought(
@@ -373,10 +363,6 @@ contract Autobet is
 
         require(totalPrize > 0, "Low totalPrice");
         require(
-            partnershare > 0 && partnershare <= 100,
-            "Share can be 1 to 100"
-        );
-        require(
             totalPrize.add((totalPrize * lotteryCreateFee).div(100)) ==
                 msg.value,
             "Amount not matching"
@@ -384,10 +370,7 @@ contract Autobet is
         require(picknumbers <= capacity, "capacity is less");
         require(startTime >= block.timestamp, "Start time passed");
         require(startTime < endtime, "End time less than start time");
-        require(
-            rolloverperct <= 50,
-            "Rollover percentage can't be more than 50"
-        );
+
         if (lottype == LotteryType.revolver || lottype == LotteryType.mine) {
             require(picknumbers == 1, "Only 1 number allowed");
         }
@@ -424,23 +407,9 @@ contract Autobet is
             lottery[lotteryId].status = LotteryState.open;
         } else {
             lottery[lotteryId].status = LotteryState.creating;
-            uint256 _requestId = requestRandomness(
-                callbackGasLimit,
-                requestConfirmations,
-                numWords
-            );
-            storeRequestedId(_requestId, lotteryId, false);
+            storeRequestedId(lotteryId, false);
         }
-        emit CreatedLottery(
-            lotteryId,
-            entryfee,
-            picknumbers,
-            totalPrize,
-            capacity,
-            msg.sender,
-            startTime,
-            organisationbyaddr[msg.sender].id
-        );
+
         lotteryId++;
     }
 
@@ -493,16 +462,16 @@ contract Autobet is
             "slots size not meet"
         );
         require(!TicketsList[hash], "Number Already claimed");
-        if (LotteryDatas.minPlayers <= lotterySales[lotteryid]) {
+        if (
+            LotteryDatas.minPlayers <= lotterySales[lotteryid] &&
+            LotteryDatas.lotteryType == LotteryType.mrl
+        ) {
             require(
                 block.timestamp < LotteryDates.endTime,
                 "Time passed to buy"
             );
         }
-        if (
-            block.timestamp > LotteryDates.endTime &&
-            LotteryDatas.lotteryType == LotteryType.mrl
-        ) {
+        if (block.timestamp > LotteryDates.endTime) {
             LotteryDates.drawTime = LotteryDates.drawTime.add(
                 LotteryDatas.rolloverperct.mul(86400)
             );
@@ -596,6 +565,7 @@ contract Autobet is
             })
         );
         amountspend[callerAdd] += amt;
+        totalSale = totalSale + 1;
         organisationbyaddr[LotteryDatas.ownerAddress].amountEarned += amt;
         userlotterydata[callerAdd].push(lotteryid);
         lotterySales[lotteryid]++;
@@ -611,35 +581,25 @@ contract Autobet is
         );
     }
 
-    function getWinners(uint256 _lotteryId) internal {
-        uint256 _requestId = requestRandomness(
-            callbackGasLimit,
-            requestConfirmations,
-            numWords
-        );
-        storeRequestedId(_requestId, _lotteryId, true);
-    }
-
     function getWinners(
         uint256 _lotteryId,
         uint256 selectedNum,
         address buyer
     ) internal {
+        uint256 _requestId = storeRequestedId(_lotteryId, true);
+        spinNumbers[_requestId] = selectedNum;
+        spinBuyer[_requestId] = buyer;
+    }
+
+    function storeRequestedId(
+        uint256 _lotteryId,
+        bool _draw
+    ) internal returns (uint256 id) {
         uint256 _requestId = requestRandomness(
             callbackGasLimit,
             requestConfirmations,
             numWords
         );
-        spinNumbers[_requestId] = selectedNum;
-        spinBuyer[_requestId] = buyer;
-        storeRequestedId(_requestId, _lotteryId, true);
-    }
-
-    function storeRequestedId(
-        uint256 _requestId,
-        uint256 _lotteryId,
-        bool _draw
-    ) internal {
         requestIds[_requestId] = _lotteryId;
         s_requests[_requestId] = RequestStatus({
             paid: VRF_V2_WRAPPER.calculateRequestPrice(callbackGasLimit),
@@ -647,6 +607,7 @@ contract Autobet is
             draw: _draw,
             fulfilled: false
         });
+        return _requestId;
     }
 
     function fulfillRandomWords(
@@ -705,42 +666,43 @@ contract Autobet is
         bytes calldata
     ) external view override returns (bool upkeepNeeded, bytes memory result) {
         upkeepNeeded = false;
+        uint256 id = 0;
         require(
             LINK.balanceOf(address(this)) >= 1,
             "Not enough LINK - fill contract with faucet"
         );
         require(!callresult, "Another Result running");
-        for (uint256 i = 1; i < lotteryId; i++) {
-            if (
-                lottery[i].lotteryType == LotteryType.mrl ||
-                lottery[i].lotteryType == LotteryType.mine
-            ) {
-                if (lottery[i].status != LotteryState.resultdone) {
-                    if (lottery[i].minPlayers <= lotterySales[i]) {
-                        if (lotteryDates[i].drawTime < block.timestamp) {
-                            upkeepNeeded = true;
-                            return (upkeepNeeded, "");
-                        }
-                    }
-                }
-            }
+        id = upKeepUtil();
+        if (id != 0) {
+            upkeepNeeded = true;
         }
+        return (upkeepNeeded, "");
     }
 
     function performUpkeep(bytes calldata) external override {
         require(!callresult, "required call true");
         callresult = true;
+        uint256 id = upKeepUtil();
+        storeRequestedId(id, true);
+    }
+
+    function upKeepUtil() internal view returns (uint256 id) {
         for (uint256 i = 1; i < lotteryId; i++) {
-            if (
-                lottery[i].lotteryType == LotteryType.mrl ||
-                lottery[i].lotteryType == LotteryType.mine
-            ) {
+            if (lottery[i].lotteryType == LotteryType.mrl) {
                 if (lottery[i].status != LotteryState.resultdone) {
                     if (lottery[i].minPlayers <= lotterySales[i]) {
                         if (lotteryDates[i].drawTime < block.timestamp) {
-                            getWinners(i);
+                            return i;
                         }
                     }
+                }
+            }
+            if (lottery[i].lotteryType == LotteryType.mine) {
+                if (
+                    lotterySales[i] == lottery[i].capacity &&
+                    lotteryDates[i].drawTime < block.timestamp
+                ) {
+                    return i;
                 }
             }
         }
@@ -811,16 +773,6 @@ contract Autobet is
             lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
             lottery[lotteryId].minPlayers = LotteryDatas.minPlayers;
             lotteryDates[lotteryId].level = LotteryDates.level + 1;
-            emit CreatedLottery(
-                lotteryId,
-                LotteryDatas.entryFee,
-                LotteryDatas.pickNumbers,
-                newTotalPrize,
-                LotteryDatas.capacity,
-                LotteryDatas.ownerAddress,
-                LotteryDates.startTime,
-                organisationbyaddr[LotteryDatas.ownerAddress].id
-            );
             lotteryId++;
         } else {
             LotteryDatas.status = LotteryState.close;
