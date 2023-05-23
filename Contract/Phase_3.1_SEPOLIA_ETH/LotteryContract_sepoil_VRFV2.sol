@@ -697,13 +697,11 @@ contract Autobet is
                     }
                 }
             }
-            if (lottery[i].lotteryType == LotteryType.mine) {
-                if (
-                    lotterySales[i] == lottery[i].capacity &&
-                    lotteryDates[i].drawTime < block.timestamp
-                ) {
-                    return i;
-                }
+            if (
+                lottery[i].lotteryType == LotteryType.mine &&
+                lotterySales[i] == lottery[i].capacity
+            ) {
+                return i;
             }
         }
     }
