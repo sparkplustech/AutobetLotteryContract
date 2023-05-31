@@ -98,6 +98,7 @@ contract Autobet is
         uint256 startTime; // Start time of Lottery.
         uint256 endTime; // End time of lottery.
         uint256 drawTime;
+        uint256 rolloverdays;
         uint16 level;
     }
 
@@ -159,7 +160,7 @@ contract Autobet is
 
     // Mapping of lottery id => user address => no of tickets
     mapping(uint256 => mapping(address => uint256)) public lotteryTickets;
-    mapping(string => bool) public TicketsList;
+    mapping(string => address) public TicketsList;
 
     event RegisterBookie(
         uint256 indexed ownerId,
@@ -345,6 +346,7 @@ contract Autobet is
         uint256 capacity,
         uint256 partner,
         uint256 rolloverperct,
+        uint256 rolloverday,
         uint256 partnershare,
         LotteryType lottype
     ) public payable onlyowner {
@@ -391,6 +393,7 @@ contract Autobet is
             partner,
             rolloverperct,
             partnershare,
+            rolloverday,
             msg.sender
         );
         lottery[lotteryId].lotteryType = lottype;
@@ -425,6 +428,7 @@ contract Autobet is
         uint256 partner,
         uint256 rolloverperct,
         uint256 partnershare,
+        uint256 rolloverday,
         address owner
     ) internal {
         lottery[_lotteryId].partnerId = partner;
@@ -437,6 +441,7 @@ contract Autobet is
         lotteryDates[_lotteryId].endTime = endtime;
         lotteryDates[_lotteryId].lotteryId = _lotteryId;
         lotteryDates[_lotteryId].drawTime = drawtime;
+        lotteryDates[_lotteryId].rolloverdays = rolloverday;
         lottery[_lotteryId].deployedOn = block.timestamp;
         lottery[_lotteryId].capacity = capacity;
         lottery[_lotteryId].ownerAddress = owner;
@@ -451,8 +456,7 @@ contract Autobet is
 
     function buyNormalLottery(
         uint256[] memory numbers,
-        uint256 lotteryid,
-        string memory hash
+        uint256 lotteryid
     ) public payable {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
@@ -461,7 +465,13 @@ contract Autobet is
             numbers.length == LotteryDatas.pickNumbers,
             "slots size not meet"
         );
-        require(!TicketsList[hash], "Number Already claimed");
+        string memory n = "";
+        for (uint256 i = 0; i < numbers.length; i++) {
+            n = string.concat(Strings.toString(numbers[i]), "-", n);
+        }
+        n = string.concat(n, Strings.toString(lotteryid));
+        require(TicketsList[n] == address(0), "Already sold");
+        TicketsList[n] = msg.sender;
         if (
             LotteryDatas.minPlayers <= lotterySales[lotteryid] &&
             LotteryDatas.lotteryType == LotteryType.mrl
@@ -472,15 +482,8 @@ contract Autobet is
             );
         }
         if (block.timestamp > LotteryDates.endTime) {
-            LotteryDates.drawTime = LotteryDates.drawTime.add(
-                LotteryDatas.rolloverperct.mul(86400)
-            );
-            LotteryDatas.status = LotteryState.rolloverOpen;
-            LotteryDates.endTime = LotteryDates.endTime.add(
-                LotteryDatas.rolloverperct.mul(86400)
-            );
+            dorolloverMath(lotteryid);
         }
-        TicketsList[hash] = true;
         doInternalMaths(lotteryid, msg.sender, msg.value, numbers);
         if (LotteryDatas.lotteryType == LotteryType.mine) {
             minelottery[lotteryid].push(numbers[0]);
@@ -527,25 +530,31 @@ contract Autobet is
             );
         } else {
             if (block.timestamp > LotteryDates.endTime) {
-                LotteryDates.level = LotteryDates.level + 1;
-                LotteryDates.drawTime = LotteryDates.drawTime.add(
-                    defaultRolloverday.mul(86400)
-                );
-                LotteryDates.endTime = LotteryDates.endTime.add(
-                    defaultRolloverday.mul(86400)
-                );
-                LotteryDatas.status = LotteryState.rolloverOpen;
-                uint256 totalSaleProfit = lotterySales[lotteryid] *
-                    LotteryDatas.entryFee;
-                LotteryDatas.totalPrize = LotteryDatas.totalPrize.add(
-                    totalSaleProfit.mul(LotteryDatas.rolloverperct).div(100)
-                );
-                organisationbyaddr[LotteryDatas.ownerAddress]
-                    .amountEarned -= totalSaleProfit
-                    .mul(LotteryDatas.rolloverperct)
-                    .div(100);
+                dorolloverMath(lotteryid);
             }
         }
+    }
+
+    function dorolloverMath(uint256 lotteryid) internal {
+        LotteryData storage LotteryDatas = lottery[lotteryid];
+        LotteryDate storage LotteryDates = lotteryDates[lotteryid];
+        LotteryDates.level = LotteryDates.level + 1;
+        LotteryDates.drawTime = LotteryDates.drawTime.add(
+            LotteryDates.rolloverdays
+        );
+        LotteryDates.endTime = LotteryDates.endTime.add(
+            LotteryDates.rolloverdays
+        );
+        LotteryDatas.status = LotteryState.rolloverOpen;
+        uint256 totalSaleProfit = lotterySales[lotteryid] *
+            LotteryDatas.entryFee;
+        LotteryDatas.totalPrize = LotteryDatas.totalPrize.add(
+            totalSaleProfit.mul(LotteryDatas.rolloverperct).div(100)
+        );
+        organisationbyaddr[LotteryDatas.ownerAddress]
+            .amountEarned -= totalSaleProfit
+            .mul(LotteryDatas.rolloverperct)
+            .div(100);
     }
 
     function doInternalMaths(
@@ -625,18 +634,12 @@ contract Autobet is
                 _requestId
             );
         } else {
-            uint8 digits = 0;
-            uint256 number = _randomness[0];
-            while (number != 0) {
-                number /= 10;
-                digits++;
-            }
+            uint16 digits = NumberLength(_randomness[0]);
             uint random = (uint(
                 keccak256(abi.encodePacked(block.timestamp, msg.sender, digits))
             ) % digits) - lottery[requestIds[_requestId]].pickNumbers;
-            string memory numString = Strings.toString(_randomness[0]);
             string memory textTrim = substring(
-                numString,
+                Strings.toString(_randomness[0]),
                 random,
                 random + lottery[requestIds[_requestId]].pickNumbers
             );
@@ -716,15 +719,13 @@ contract Autobet is
             LotteryDatas.lotteryType == LotteryType.mrl ||
             LotteryDatas.lotteryType == LotteryType.mine
         ) {
-            num = num.mod(LotteryDatas.Tickets.length);
-            LotteryDatas.status = LotteryState.resultdone;
-            LotteryDatas.lotteryWinner = LotteryDatas.Tickets[num].userAddress;
-            emit LotteryResult(
-                LotteryDatas.Tickets[num].userAddress,
+            getmrlwinner(
                 lotteryid,
-                block.timestamp
+                num,
+                LotteryDatas.capacity,
+                LotteryDatas.pickNumbers,
+                requestId
             );
-            paywinner(lotteryid, requestId);
         } else {
             num = num.mod(LotteryDatas.capacity);
             num = num.add(1);
@@ -746,6 +747,63 @@ contract Autobet is
         }
     }
 
+    function getmrlwinner(
+        uint256 lotteryid,
+        uint256 random,
+        uint256 capacity,
+        uint256 pick,
+        uint256 requestId
+    ) internal {
+        LotteryData storage LotteryDatas = lottery[lotteryid];
+        string memory n = "";
+        uint256 j = 0;
+        uint16 digits = NumberLength(random);
+        uint256 c = 0;
+        uint256[] memory num = new uint256[](digits);
+        while (j < pick) {
+            uint random1 = (uint(
+                keccak256(
+                    abi.encodePacked(block.timestamp + c, msg.sender, digits)
+                )
+            ) % digits);
+            uint random2 = (uint(
+                keccak256(abi.encodePacked(block.timestamp + c, msg.sender, j))
+            ) % 2);
+            string memory textTrim = substring(
+                Strings.toString(random),
+                random1,
+                random1 + random2 + 1
+            );
+            if (
+                stringToUint(textTrim) <= capacity &&
+                num[stringToUint(textTrim)] == 0
+            ) {
+                n = string.concat(textTrim, "-", n);
+                num[stringToUint(textTrim)] = 1;
+                j++;
+            }
+            c++;
+        }
+        n = string.concat(n, Strings.toString(lotteryid));
+        if (TicketsList[n] != address(0)) {
+            LotteryDatas.status = LotteryState.resultdone;
+            LotteryDatas.lotteryWinner = TicketsList[n];
+            emit LotteryResult(TicketsList[n], lotteryid, block.timestamp);
+            paywinner(lotteryid, requestId);
+        } else {
+            dorolloverMath(lotteryid);
+        }
+    }
+
+    function NumberLength(uint number) internal returns (uint16) {
+        uint8 digits = 0;
+        while (number != 0) {
+            number /= 10;
+            digits++;
+        }
+        return digits;
+    }
+
     function createRevolverRollover(uint256 lotteryid) internal {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
@@ -764,6 +822,7 @@ contract Autobet is
                 LotteryDatas.partnerId,
                 LotteryDatas.rolloverperct,
                 LotteryDatas.partnershare,
+                LotteryDates.rolloverdays,
                 LotteryDatas.ownerAddress
             );
             LotteryDatas.status = LotteryState.rollover;
