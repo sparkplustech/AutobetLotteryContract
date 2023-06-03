@@ -128,9 +128,10 @@ contract Autobet is
     uint32 numWords = 1;
 
     mapping(uint256 => RequestStatus) public s_requests;
-    mapping(uint256 => OwnerData) public organisationbyid;
+    mapping(uint256 => address) public organisationbyid;
     mapping(address => OwnerData) public organisationbyaddr;
     mapping(address => PartnerData) public partnerbyaddr;
+    mapping(uint256 => address) public partnerids;
     // Mapping lottery id => details of the lottery.
     mapping(uint256 => LotteryData) public lottery;
     mapping(uint256 => LotteryDate) public lotteryDates;
@@ -221,21 +222,7 @@ contract Autobet is
             minPrize: 0,
             maxPrize: 1 * 10 ** 30
         });
-        organisationbyid[ownerId++] = OwnerData({
-            id: ownerId,
-            userAddress: msg.sender,
-            referee: address(0),
-            name: "Autobet",
-            phoneno: "",
-            dob: 0,
-            resiAddress: "",
-            email: "autobetlottery@gmail.com",
-            active: true,
-            amountEarned: 0,
-            commissionEarned: 0,
-            minPrize: 0,
-            maxPrize: 1 * 10 ** 30
-        });
+        organisationbyid[ownerId++] = msg.sender;
     }
 
     function setCallresult(bool _callresult) external {
@@ -309,21 +296,7 @@ contract Autobet is
             minPrize: _minPrize,
             maxPrize: _maxPrize
         });
-        organisationbyid[ownerId++] = OwnerData({
-            id: ownerId,
-            userAddress: _owner,
-            name: _name,
-            referee: _referee,
-            resiAddress: _resiAddress,
-            active: true,
-            phoneno: _phoneno,
-            dob: _dob,
-            email: _email,
-            amountEarned: 0,
-            commissionEarned: 0,
-            minPrize: _minPrize,
-            maxPrize: _maxPrize
-        });
+        organisationbyid[ownerId++] = _owner;
         organisationbyaddr[admin].commissionEarned += msg.value;
     }
 
@@ -646,11 +619,8 @@ contract Autobet is
         uint256 median = ((_minPrize.add(_maxPrize)).mul(10 ** 18)).div(2);
         uint256 fees = (median * bregisterFee).div(100);
         require(fees == msg.value, "Register Fee not matching");
-        uint256 ids = organisationbyaddr[msg.sender].id;
         organisationbyaddr[msg.sender].minPrize = _minPrize;
         organisationbyaddr[msg.sender].maxPrize = _maxPrize;
-        organisationbyid[ids].minPrize = _minPrize;
-        organisationbyid[ids].maxPrize = _maxPrize;
         organisationbyaddr[admin].commissionEarned += msg.value;
     }
 
@@ -1027,6 +997,7 @@ contract Autobet is
         assert(_partnerAddress != address(0));
         if (partnerbyaddr[_partnerAddress].partnerAddress == address(0)) {
             partnerId++;
+            partnerids[partnerId] = _partnerAddress;
             partnerbyaddr[_partnerAddress] = PartnerData({
                 partnerId: partnerId,
                 name: _name,
