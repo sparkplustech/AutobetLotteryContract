@@ -25,6 +25,7 @@ contract Autobet is
     uint256 public totalSale = 0;
     address public tokenAddress;
     address public admin;
+    string public lastresult;
     bool public callresult;
 
     enum LotteryState {
@@ -661,7 +662,8 @@ contract Autobet is
             }
             if (
                 lottery[i].lotteryType == LotteryType.mine &&
-                lotterySales[i] == lottery[i].capacity
+                lotterySales[i] == lottery[i].capacity &&
+                lottery[i].status != LotteryState.resultdone
             ) {
                 return i;
             }
@@ -734,6 +736,7 @@ contract Autobet is
                 random1 + random2 + 1
             );
             if (
+                stringToUint(textTrim) > 0 &&
                 stringToUint(textTrim) <= capacity &&
                 num[stringToUint(textTrim)] == 0
             ) {
@@ -744,6 +747,7 @@ contract Autobet is
             c++;
         }
         n = string.concat(n, Strings.toString(lotteryid));
+        lastresult = n;
         if (TicketsList[n] != address(0)) {
             LotteryDatas.status = LotteryState.resultdone;
             LotteryDatas.lotteryWinner = TicketsList[n];
@@ -751,6 +755,7 @@ contract Autobet is
             paywinner(lotteryid, requestId);
         } else {
             dorolloverMath(lotteryid);
+            callresult = false;
         }
     }
 
