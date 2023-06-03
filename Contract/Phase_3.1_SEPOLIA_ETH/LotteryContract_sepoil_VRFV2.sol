@@ -83,10 +83,10 @@ contract Autobet is
         uint256 entryFee;
         uint256 totalPrize; // Total wining price.
         uint256 minPlayers;
-        uint256 partnerId;
         uint256 partnershare;
         uint256 rolloverperct;
         uint256 deployedOn;
+        address partnerAddress;
         address lotteryWinner;
         address ownerAddress;
         LotteryState status;
@@ -131,7 +131,6 @@ contract Autobet is
     mapping(uint256 => OwnerData) public organisationbyid;
     mapping(address => OwnerData) public organisationbyaddr;
     mapping(address => PartnerData) public partnerbyaddr;
-    mapping(uint256 => PartnerData) public partnerbyid;
     // Mapping lottery id => details of the lottery.
     mapping(uint256 => LotteryData) public lottery;
     mapping(uint256 => LotteryDate) public lotteryDates;
@@ -161,13 +160,6 @@ contract Autobet is
     // Mapping of lottery id => user address => no of tickets
     mapping(uint256 => mapping(address => uint256)) public lotteryTickets;
     mapping(string => address) public TicketsList;
-
-    event RegisterBookie(
-        uint256 indexed ownerId,
-        address _owner,
-        string _name,
-        address _referee
-    );
 
     event LotteryBought(
         uint256[] numbers,
@@ -333,7 +325,6 @@ contract Autobet is
             maxPrize: _maxPrize
         });
         organisationbyaddr[admin].commissionEarned += msg.value;
-        emit RegisterBookie(ownerId, _owner, _name, _referee);
     }
 
     function createLottery(
@@ -344,10 +335,10 @@ contract Autobet is
         uint256 endtime,
         uint256 drawtime,
         uint256 capacity,
-        uint256 partner,
         uint256 rolloverperct,
         uint256 rolloverday,
         uint256 partnershare,
+        address partner,
         LotteryType lottype
     ) public payable onlyowner {
         require(
@@ -372,7 +363,6 @@ contract Autobet is
         require(picknumbers <= capacity, "capacity is less");
         require(startTime >= block.timestamp, "Start time passed");
         require(startTime < endtime, "End time less than start time");
-
         if (lottype == LotteryType.revolver || lottype == LotteryType.mine) {
             require(picknumbers == 1, "Only 1 number allowed");
         }
@@ -380,6 +370,7 @@ contract Autobet is
         if (lottype == LotteryType.missile) {
             require(picknumbers <= 10, " Only 10 combination allowed");
         }
+
         lotteryDates[lotteryId].level = 1;
         commonLotteryDetails(
             lotteryId,
@@ -390,10 +381,10 @@ contract Autobet is
             endtime,
             drawtime,
             capacity,
-            partner,
             rolloverperct,
             partnershare,
             rolloverday,
+            partner,
             msg.sender
         );
         lottery[lotteryId].lotteryType = lottype;
@@ -425,13 +416,13 @@ contract Autobet is
         uint256 endtime,
         uint256 drawtime,
         uint256 capacity,
-        uint256 partner,
         uint256 rolloverperct,
         uint256 partnershare,
         uint256 rolloverday,
+        address partnerAddress,
         address owner
     ) internal {
-        lottery[_lotteryId].partnerId = partner;
+        lottery[_lotteryId].partnerAddress = partnerAddress;
         lottery[_lotteryId].lotteryId = _lotteryId;
         lottery[_lotteryId].rolloverperct = rolloverperct;
         lottery[_lotteryId].entryFee = entryfee;
@@ -447,9 +438,7 @@ contract Autobet is
         lottery[_lotteryId].ownerAddress = owner;
         lottery[_lotteryId].partnershare = partnershare;
         orglotterydata[owner].push(_lotteryId);
-        partnerlotterydata[partnerbyid[partner].partnerAddress].push(
-            _lotteryId
-        );
+        partnerlotterydata[partnerAddress].push(_lotteryId);
         organisationbyaddr[admin].commissionEarned += (totalPrize *
             lotteryCreateFee).div(100);
     }
@@ -795,7 +784,7 @@ contract Autobet is
         }
     }
 
-    function NumberLength(uint number) internal returns (uint16) {
+    function NumberLength(uint number) internal pure returns (uint16) {
         uint8 digits = 0;
         while (number != 0) {
             number /= 10;
@@ -819,10 +808,10 @@ contract Autobet is
                 LotteryDates.endTime,
                 LotteryDates.drawTime,
                 LotteryDatas.capacity,
-                LotteryDatas.partnerId,
                 LotteryDatas.rolloverperct,
                 LotteryDatas.partnershare,
                 LotteryDates.rolloverdays,
+                LotteryDatas.partnerAddress,
                 LotteryDatas.ownerAddress
             );
             LotteryDatas.status = LotteryState.rollover;
@@ -852,12 +841,11 @@ contract Autobet is
             uint256 partnerpay = totalSaleProfit
                 .mul(LotteryDatas.partnershare)
                 .div(100);
-            payable(partnerbyid[LotteryDatas.partnerId].partnerAddress)
-                .transfer(partnerpay);
+            payable(LotteryDatas.partnerAddress).transfer(partnerpay);
             organisationbyaddr[LotteryDatas.ownerAddress]
                 .amountEarned -= partnerpay;
             emit PartnerPaid(
-                partnerbyid[LotteryDatas.partnerId].partnerAddress,
+                LotteryDatas.partnerAddress,
                 lotteryid,
                 partnerpay
             );
@@ -1048,28 +1036,8 @@ contract Autobet is
                 partnerAddress: _partnerAddress,
                 createdOn: _createdOn
             });
-            partnerbyid[partnerId] = PartnerData({
-                partnerId: partnerId,
-                name: _name,
-                logoHash: _logoHash,
-                status: _status,
-                websiteAdd: _websiteAdd,
-                partnerAddress: _partnerAddress,
-                createdOn: _createdOn
-            });
         } else {
             partnerbyaddr[_partnerAddress] = PartnerData({
-                partnerId: partnerbyaddr[_partnerAddress].partnerId,
-                name: _name,
-                logoHash: _logoHash,
-                status: _status,
-                websiteAdd: _websiteAdd,
-                partnerAddress: _partnerAddress,
-                createdOn: _createdOn
-            });
-            partnerbyid[
-                partnerbyaddr[_partnerAddress].partnerId
-            ] = PartnerData({
                 partnerId: partnerbyaddr[_partnerAddress].partnerId,
                 name: _name,
                 logoHash: _logoHash,
