@@ -435,16 +435,7 @@ contract Autobet is
         n = string.concat(n, Strings.toString(lotteryid));
         require(TicketsList[n] == address(0), "Already sold");
         TicketsList[n] = msg.sender;
-        if (
-            LotteryDatas.minPlayers <= lotterySales[lotteryid] &&
-            LotteryDatas.lotteryType == LotteryType.mrl
-        ) {
-            require(
-                block.timestamp < LotteryDates.endTime,
-                "Time passed to buy"
-            );
-        }
-        if (block.timestamp > LotteryDates.endTime) {
+        if (block.timestamp > LotteryDates.drawTime) {
             dorolloverMath(lotteryid);
         }
         doInternalMaths(lotteryid, msg.sender, msg.value, numbers);
@@ -492,7 +483,7 @@ contract Autobet is
                 79605497052302279665647778512986110346654820553100948541933326299138325266895
             );
         } else {
-            if (block.timestamp > LotteryDates.endTime) {
+            if (block.timestamp > LotteryDates.drawTime) {
                 dorolloverMath(lotteryid);
             }
         }
@@ -503,9 +494,6 @@ contract Autobet is
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
         LotteryDates.level = LotteryDates.level + 1;
         LotteryDates.drawTime = LotteryDates.drawTime.add(
-            LotteryDates.rolloverdays
-        );
-        LotteryDates.endTime = LotteryDates.endTime.add(
             LotteryDates.rolloverdays
         );
         LotteryDatas.status = LotteryState.rolloverOpen;
