@@ -55,8 +55,6 @@ contract Autobet is
         string email;
         string resiAddress;
         uint256 id;
-        uint256 amountEarned;
-        uint256 commissionEarned;
         uint256 maxPrize;
         uint256 minPrize;
     }
@@ -140,6 +138,10 @@ contract Autobet is
     mapping(address => uint256) public amountspend;
     mapping(address => uint256) public refereeEarned;
     mapping(address => uint256) public amountwon;
+    mapping(address => uint256) public amountEarned;
+    mapping(address => uint256) public amountLocked;
+    mapping(address => uint256) public commissionEarned;
+    mapping(uint256 => uint256) public totalProfits;
 
     mapping(address => uint256) public tokenearned;
     mapping(address => uint256) public tokenredeemed;
@@ -218,11 +220,11 @@ contract Autobet is
             resiAddress: "",
             email: "autobetlottery@gmail.com",
             active: true,
-            amountEarned: 0,
-            commissionEarned: 0,
             minPrize: 0,
             maxPrize: 1 * 10 ** 30
         });
+        amountEarned[msg.sender] = 0;
+        commissionEarned[msg.sender] = 0;
         organisationbyid[ownerId++] = msg.sender;
     }
 
@@ -292,13 +294,12 @@ contract Autobet is
             phoneno: _phoneno,
             dob: _dob,
             email: _email,
-            amountEarned: 0,
-            commissionEarned: 0,
             minPrize: _minPrize,
             maxPrize: _maxPrize
         });
+        amountEarned[_owner] = 0;
+        commissionEarned[admin] += msg.value;
         organisationbyid[ownerId++] = _owner;
-        organisationbyaddr[admin].commissionEarned += msg.value;
     }
 
     function createLottery(
@@ -413,8 +414,7 @@ contract Autobet is
         lottery[_lotteryId].partnershare = partnershare;
         orglotterydata[owner].push(_lotteryId);
         partnerlotterydata[partnerAddress].push(_lotteryId);
-        organisationbyaddr[admin].commissionEarned += (totalPrize *
-            lotteryCreateFee).div(100);
+        commissionEarned[admin] += (totalPrize * lotteryCreateFee).div(100);
     }
 
     function buyNormalLottery(
@@ -497,13 +497,10 @@ contract Autobet is
             LotteryDates.rolloverdays
         );
         LotteryDatas.status = LotteryState.rolloverOpen;
-        uint256 totalSaleProfit = lotterySales[lotteryid] *
-            LotteryDatas.entryFee;
         LotteryDatas.totalPrize = LotteryDatas.totalPrize.add(
-            totalSaleProfit.mul(LotteryDatas.rolloverperct).div(100)
+            totalProfits[lotteryid].mul(LotteryDatas.rolloverperct).div(100)
         );
-        organisationbyaddr[LotteryDatas.ownerAddress]
-            .amountEarned -= totalSaleProfit
+        amountLocked[LotteryDatas.ownerAddress] -= totalProfits[lotteryid]
             .mul(LotteryDatas.rolloverperct)
             .div(100);
     }
@@ -526,7 +523,8 @@ contract Autobet is
         );
         amountspend[callerAdd] += amt;
         totalSale = totalSale + 1;
-        organisationbyaddr[LotteryDatas.ownerAddress].amountEarned += amt;
+        totalProfits[lotteryid] += amt;
+        amountLocked[LotteryDatas.ownerAddress] += amt;
         userlotterydata[callerAdd].push(lotteryid);
         lotterySales[lotteryid]++;
         tokenearned[callerAdd] += (
@@ -610,7 +608,7 @@ contract Autobet is
         require(fees == msg.value, "Register Fee not matching");
         organisationbyaddr[msg.sender].minPrize = _minPrize;
         organisationbyaddr[msg.sender].maxPrize = _maxPrize;
-        organisationbyaddr[admin].commissionEarned += msg.value;
+        commissionEarned[admin] += msg.value;
     }
 
     function checkUpkeep(
@@ -798,15 +796,18 @@ contract Autobet is
             uint256 finalAmount = prizeAmt.sub(subtAmt);
             payable(useraddressdata).transfer(finalAmount);
             emit WinnerPaid(useraddressdata, lotteryid, finalAmount);
-            organisationbyaddr[admin].commissionEarned += subtAmt;
-            uint256 totalSaleProfit = lotterySales[lotteryid] *
-                LotteryDatas.entryFee;
-            uint256 partnerpay = totalSaleProfit
+            commissionEarned[admin] += subtAmt;
+            uint256 partnerpay = totalProfits[lotteryid]
                 .mul(LotteryDatas.partnershare)
                 .div(100);
             payable(LotteryDatas.partnerAddress).transfer(partnerpay);
-            organisationbyaddr[LotteryDatas.ownerAddress]
-                .amountEarned -= partnerpay;
+            amountLocked[LotteryDatas.ownerAddress] -=
+                totalProfits[lotteryid] -
+                partnerpay;
+            amountEarned[LotteryDatas.ownerAddress] +=
+                totalProfits[lotteryid] -
+                partnerpay;
+
             emit PartnerPaid(
                 LotteryDatas.partnerAddress,
                 lotteryid,
@@ -905,24 +906,24 @@ contract Autobet is
     }
 
     function withdrawcommission() external payable {
-        uint256 amountEarned = organisationbyaddr[msg.sender].amountEarned;
-        uint256 subtAmt = amountEarned.mul(transferFeePerc).div(100);
-        uint256 finalAmount = amountEarned.sub(subtAmt);
+        uint256 amount = amountEarned[msg.sender];
+        uint256 subtAmt = amount.mul(transferFeePerc).div(100);
+        uint256 finalAmount = amount.sub(subtAmt);
         payable(msg.sender).transfer(finalAmount);
-        organisationbyaddr[admin].commissionEarned += subtAmt;
-        organisationbyaddr[msg.sender].commissionEarned += finalAmount;
-        organisationbyaddr[msg.sender].amountEarned = 0;
+        commissionEarned[admin] += subtAmt;
+        commissionEarned[msg.sender] += finalAmount;
+        amountEarned[msg.sender] = 0;
     }
 
     function withdrawAdmin() external payable onlyAdmin {
-        uint256 amountEarned = organisationbyaddr[admin].commissionEarned;
-        payable((msg.sender)).transfer(amountEarned);
-        organisationbyaddr[admin].commissionEarned = 0;
+        uint256 amount = commissionEarned[admin];
+        payable((msg.sender)).transfer(amount);
+        commissionEarned[admin] = 0;
     }
 
     function withdrawrefereecommission() external payable {
-        uint256 amountEarned = refereeEarned[msg.sender];
-        payable((msg.sender)).transfer(amountEarned);
+        uint256 amount = refereeEarned[msg.sender];
+        payable((msg.sender)).transfer(amount);
         refereeEarned[msg.sender] = 0;
     }
 
