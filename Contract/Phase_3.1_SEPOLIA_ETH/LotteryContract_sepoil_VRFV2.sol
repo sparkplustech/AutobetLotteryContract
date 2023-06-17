@@ -176,7 +176,8 @@ contract Autobet is
     event LotteryResult(
         address useraddressdata,
         uint256 indexed lotteryId,
-        uint256 drawOn
+        uint256 drawOn,
+        string number
     );
 
     event WinnerPaid(
@@ -737,7 +738,7 @@ contract Autobet is
         if (TicketsList[n] != address(0)) {
             LotteryDatas.status = LotteryState.resultdone;
             LotteryDatas.lotteryWinner = TicketsList[n];
-            emit LotteryResult(TicketsList[n], lotteryid, block.timestamp);
+            emit LotteryResult(TicketsList[n], lotteryid, block.timestamp, n);
             paywinner(lotteryid, requestId);
         } else {
             dorolloverMath(lotteryid);
