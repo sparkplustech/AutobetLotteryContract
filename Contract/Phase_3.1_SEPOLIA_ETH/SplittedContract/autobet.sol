@@ -6,7 +6,23 @@ import "@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
 import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
 import "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "./autobetUser.sol";
+
+// import "./autobetUser.sol";
+interface IABUser {
+    function isCreator(address) external view returns (bool);
+
+    function getMinPrize(address creatorAddress)
+        external
+        view
+        returns (uint256);
+
+    function getMaxPrize(address creatorAddress)
+        external
+        view
+        returns (uint256);
+
+    function getReferee(address creatorAddress) external view returns (address);
+}
 
 contract Autobet is
     AutomationCompatibleInterface,
@@ -28,9 +44,11 @@ contract Autobet is
     address public admin;
     string public lastresult;
     bool public callresult;
-    autobetUser public autobetuserInstance;
     address public autobetUseraddress;
-
+    IABUser public ABUserInstance;
+    uint256 minPrize = ABUserInstance.getMinPrize(msg.sender);
+    uint256 maxPrize = ABUserInstance.getMaxPrize(msg.sender);
+    address referee = ABUserInstance.getReferee(msg.sender);
 
     enum LotteryState {
         open,
@@ -204,9 +222,7 @@ contract Autobet is
         uint256 date
     );
 
-    constructor(
-        address _tokenAddress,address _autobetUseraddress
-    )
+    constructor(address _tokenAddress, address _autobetUseraddress)
         ConfirmedOwner(msg.sender)
         VRFV2WrapperConsumerBase(
             0x779877A7B0D9E8603169DdbD7836e478b4624789, // LINK Token
@@ -214,9 +230,10 @@ contract Autobet is
         )
     {
         autobetUseraddress = _autobetUseraddress;
+        ABUserInstance = IABUser(autobetUseraddress);
         admin = msg.sender;
         tokenAddress = _tokenAddress;
-    
+
         amountEarned[msg.sender] = 0;
         commissionEarned[msg.sender] = 0;
         // organisationbyid[ownerId++] = msg.sender;
@@ -233,23 +250,24 @@ contract Autobet is
     ) public pure returns (string memory) {
         bytes memory strBytes = bytes(str);
         bytes memory result = new bytes(endIndex - startIndex);
-        for (uint i = startIndex; i < endIndex; i++) {
+        for (uint256 i = startIndex; i < endIndex; i++) {
             result[i - startIndex] = strBytes[i];
         }
         return string(result);
     }
 
-    function compareStrings(
-        string memory a,
-        string memory b
-    ) internal pure returns (bool) {
+    function compareStrings(string memory a, string memory b)
+        internal
+        pure
+        returns (bool)
+    {
         return (keccak256(abi.encodePacked((a))) ==
             keccak256(abi.encodePacked((b))));
     }
 
-    function stringToUint(string memory s) public pure returns (uint) {
+    function stringToUint(string memory s) public pure returns (uint256) {
         bytes memory b = bytes(s);
-        uint result = 0;
+        uint256 result = 0;
         for (uint256 i = 0; i < b.length; i++) {
             uint256 c = uint256(uint8(b[i]));
             if (c >= 48 && c <= 57) {
@@ -259,10 +277,9 @@ contract Autobet is
         return result;
     }
 
-function getCreatorData(address creatorAddress) public view returns (bool, address, address, string memory, string memory, uint256, string memory, string memory, uint256, uint256, uint256) {
-    return autobetUser(autobetUseraddress).organisationbyaddr(creatorAddress);
-}
-
+    // function getCreatorData(address creatorAddress) public view returns (bool, address, address, string memory, string memory, uint256, string memory, string memory, uint256, uint256, uint256) {
+    //     return autobetUser(autobetUseraddress).organisationbyaddr(creatorAddress);
+    // }
 
     function createLottery(
         uint256 entryfee,
@@ -277,21 +294,26 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         uint256 partnershare,
         address partner,
         LotteryType lottype
-    ) public payable{
-      require(autobetuserInstance.isCreator(msg.sender), "Not a registered creator");
-       autobetUser.OwnerData memory creatorData = autobetuserInstance.getCreatorData(msg.sender);
+    ) public payable {
         require(
-        creatorData.minPrize <= totalPrize && creatorData.maxPrize >= totalPrize,
-        "Not allowed winning amount"
-    );
+            ABUserInstance.isCreator(msg.sender),
+            "Not a registered creator"
+        );
+
+        require(
+            minPrize <= totalPrize && maxPrize >= totalPrize,
+            "Not allowed winning amount"
+        );
         require(
             LINK.balanceOf(address(this)) >= 1,
             "Not enough LINK - fill contract with faucet"
         );
 
         require(totalPrize > 0, "Low totalPrice");
-        uint256 minTotalPrice = totalPrize.add((totalPrize * lotteryCreateFee) / 100);
-    require(msg.value == minTotalPrice, "Amount not matching");
+        uint256 minTotalPrice = totalPrize.add(
+            (totalPrize * lotteryCreateFee) / 100
+        );
+        require(msg.value == minTotalPrice, "Amount not matching");
         require(picknumbers <= capacity, "capacity is less");
         require(startTime >= block.timestamp, "Start time passed");
         require(startTime < endtime, "End time less than start time");
@@ -322,11 +344,12 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         lottery[lotteryId].lotteryType = lottype;
         lottery[lotteryId].minPlayers =
             (totalPrize).div(entryfee) +
-            (totalPrize).mul(10).div(entryfee).div(100);
+            (totalPrize).mul(10).div(entryfee) /
+            100;
 
-        if (creatorData.referee != address(0)) {
-            refereeEarned[creatorData.referee] =
-                refereeEarned[creatorData.referee] +
+        if (referee != address(0)) {
+            refereeEarned[referee] =
+                refereeEarned[referee] +
                 totalPrize.div(100);
         }
         if (lottype != LotteryType.missile) {
@@ -374,10 +397,10 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         commissionEarned[admin] += (totalPrize * lotteryCreateFee).div(100);
     }
 
-    function buyNormalLottery(
-        uint256[] memory numbers,
-        uint256 lotteryid
-    ) public payable {
+    function buyNormalLottery(uint256[] memory numbers, uint256 lotteryid)
+        public
+        payable
+    {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
@@ -401,10 +424,10 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         }
     }
 
-    function buySpinnerLottery(
-        uint256 numbers,
-        uint256 lotteryid
-    ) public payable {
+    function buySpinnerLottery(uint256 numbers, uint256 lotteryid)
+        public
+        payable
+    {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
         require(
@@ -419,10 +442,10 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         getWinners(lotteryid, numbers, msg.sender);
     }
 
-    function buyMissilelottery(
-        string memory code,
-        uint256 lotteryid
-    ) public payable {
+    function buyMissilelottery(string memory code, uint256 lotteryid)
+        public
+        payable
+    {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
@@ -506,10 +529,10 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         spinBuyer[_requestId] = buyer;
     }
 
-    function storeRequestedId(
-        uint256 _lotteryId,
-        bool _draw
-    ) internal returns (uint256 id) {
+    function storeRequestedId(uint256 _lotteryId, bool _draw)
+        internal
+        returns (uint256 id)
+    {
         uint256 _requestId = requestRandomness(
             callbackGasLimit,
             requestConfirmations,
@@ -541,7 +564,7 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
             );
         } else {
             uint16 digits = NumberLength(_randomness[0]);
-            uint random = (uint(
+            uint256 random = (uint256(
                 keccak256(abi.encodePacked(block.timestamp, msg.sender, digits))
             ) % digits) - lottery[requestIds[_requestId]].pickNumbers;
             string memory textTrim = substring(
@@ -554,25 +577,27 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         }
     }
 
-    function updateMinMax(
-        uint256 _minPrize,
-        uint256 _maxPrize
-    ) public payable{
-       require(autobetuserInstance.isCreator(msg.sender), "Not a registered creator");
+    function updateMinMax(uint256 _minPrize, uint256 _maxPrize) public payable {
+        require(
+            ABUserInstance.isCreator(msg.sender),
+            "Not a registered creator"
+        );
         require(_maxPrize > 0, "Cant be below zero");
         require(_minPrize > 0, "Cant be below zero");
-        uint256 median = ((_minPrize.add(_maxPrize)).mul(10 ** 18)).div(2);
+        uint256 median = ((_minPrize.add(_maxPrize)).mul(10**18)).div(2);
         uint256 fees = (median * bregisterFee).div(100);
         require(fees == msg.value, "Register Fee not matching");
-        autobetUser.OwnerData memory updateData = autobetuserInstance.getCreatorData(msg.sender);
-        updateData.minPrize = _minPrize;
-        updateData.maxPrize = _maxPrize;
+        minPrize = _minPrize;
+        maxPrize = _maxPrize;
         commissionEarned[admin] += msg.value;
     }
 
-    function checkUpkeep(
-        bytes calldata
-    ) external view override returns (bool upkeepNeeded, bytes memory result) {
+    function checkUpkeep(bytes calldata)
+        external
+        view
+        override
+        returns (bool upkeepNeeded, bytes memory result)
+    {
         upkeepNeeded = false;
         uint256 id = 0;
         require(
@@ -667,12 +692,12 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         uint256 c = 0;
         uint256[] memory num = new uint256[](digits);
         while (j < pick) {
-            uint random1 = (uint(
+            uint256 random1 = (uint256(
                 keccak256(
                     abi.encodePacked(block.timestamp + c, msg.sender, digits)
                 )
             ) % digits);
-            uint random2 = (uint(
+            uint256 random2 = (uint256(
                 keccak256(abi.encodePacked(block.timestamp + c, msg.sender, j))
             ) % 2);
             string memory textTrim = substring(
@@ -704,7 +729,7 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         }
     }
 
-    function NumberLength(uint number) internal pure returns (uint16) {
+    function NumberLength(uint256 number) internal pure returns (uint16) {
         uint8 digits = 0;
         while (number != 0) {
             number /= 10;
@@ -776,9 +801,11 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         callresult = false;
     }
 
-    function getUserlotteries(
-        address useraddress
-    ) external view returns (uint256[] memory lotteryids) {
+    function getUserlotteries(address useraddress)
+        external
+        view
+        returns (uint256[] memory lotteryids)
+    {
         uint256[] memory lotteries = new uint256[](
             userlotterydata[useraddress].length
         );
@@ -788,9 +815,11 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         return lotteries;
     }
 
-    function getPartnerlotteries(
-        address partneraddress
-    ) external view returns (uint256[] memory lotteryids) {
+    function getPartnerlotteries(address partneraddress)
+        external
+        view
+        returns (uint256[] memory lotteryids)
+    {
         uint256[] memory lotteries = new uint256[](
             partnerlotterydata[partneraddress].length
         );
@@ -808,9 +837,11 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         tokenAddress = _tokenAddress;
     }
 
-    function getOrglotteries(
-        address useraddress
-    ) external view returns (uint256[] memory lotterids) {
+    function getOrglotteries(address useraddress)
+        external
+        view
+        returns (uint256[] memory lotterids)
+    {
         uint256[] memory lotteries = new uint256[](
             orglotterydata[useraddress].length
         );
@@ -820,9 +851,7 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         return lotteries;
     }
 
-    function getLotteryNumbers(
-        uint256 lotteryid
-    )
+    function getLotteryNumbers(uint256 lotteryid)
         public
         view
         returns (uint256[] memory tickets, address[] memory useraddress)
@@ -853,9 +882,11 @@ function getCreatorData(address creatorAddress) public view returns (bool, addre
         return (userdata, useraddressdata);
     }
 
-    function getMineLotteryNumbers(
-        uint256 lotteryid
-    ) public view returns (uint256[] memory numbers) {
+    function getMineLotteryNumbers(uint256 lotteryid)
+        public
+        view
+        returns (uint256[] memory numbers)
+    {
         uint256[] memory number = new uint256[](minelottery[lotteryid].length);
         uint256 p = 0;
         for (uint256 i = 0; i < minelottery[lotteryid].length; i++) {

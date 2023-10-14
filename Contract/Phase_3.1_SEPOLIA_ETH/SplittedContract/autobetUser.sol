@@ -47,8 +47,16 @@ modifier onlyowner() {
     return organisationbyaddr[creatorAddress].active;
 }
 
-function getCreatorData(address creatorAddress) public view returns (OwnerData memory) {
-    return organisationbyaddr[creatorAddress];
+function getMinPrize(address creatorAddress) public view returns (uint256) {
+    return organisationbyaddr[creatorAddress].minPrize;
+}
+
+function getMaxPrize(address creatorAddress) public view returns (uint256) {
+    return organisationbyaddr[creatorAddress].maxPrize;
+}
+
+function getReferee(address creatorAddress) public view returns (address) {
+    return organisationbyaddr[creatorAddress].referee;
 }
 
      struct OwnerData {
