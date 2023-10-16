@@ -10,7 +10,7 @@ contract autobetUser {
     using SafeMath for uint256;
     mapping(address => OwnerData) public organisationbyaddr;
     mapping(address => uint256) public amountEarned;
-    mapping(address => uint256) public registerationFees;
+    mapping(address => uint256) public registrationFees;
     mapping(uint256 => address) public organisationbyid;
 
     //  constructor(address _tokenAddress);
@@ -36,7 +36,7 @@ contract autobetUser {
             maxPrize: 1 * 10 ** 30
         });
         amountEarned[msg.sender] = 0;
-        registerationFees[msg.sender] = 0;
+        registrationFees[msg.sender] = 0;
         organisationbyid[ownerId++] = msg.sender;
     }
 
@@ -60,6 +60,10 @@ contract autobetUser {
     function getReferee(address creatorAddress) public view returns (address) {
         return organisationbyaddr[creatorAddress].referee;
     }
+
+    function getRegistrationFees(address _user) external view returns (uint256) {
+    return registrationFees[_user];
+}
 
     struct OwnerData {
         bool active;
@@ -108,7 +112,7 @@ contract autobetUser {
             maxPrize: _maxPrize
         });
         amountEarned[_owner] = 0;
-        registerationFees[admin] += msg.value;
+        registrationFees[admin] += msg.value;
         organisationbyid[ownerId++] = _owner;
     }
 
@@ -127,8 +131,8 @@ contract autobetUser {
         uint256 median = ((_minPrize.add(_maxPrize)).mul(10 ** 18)).div(2);
         uint256 fees = (median * bregisterFee).div(100);
         require(fees == msg.value, "Register Fee not matching");
-        [msg.sender].minPrize = _minPrize;
+organisationbyaddr[msg.sender].minPrize = _minPrize;
         organisationbyaddr[msg.sender].maxPrize = _maxPrize;
-        organisationbyaddr[admin].commissionEarned += msg.value;
+        registrationFees[admin] += msg.value;
     }
 }

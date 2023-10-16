@@ -19,6 +19,8 @@ interface IABUser {
     ) external view returns (uint256);
 
     function getReferee(address creatorAddress) external view returns (address);
+
+    function getRegistrationFees(address _user) external view returns (uint256);
 }
 
 contract Autobet is
@@ -28,7 +30,7 @@ contract Autobet is
 {
     using SafeMath for uint256;
     uint256 public lotteryId = 1;
-    uint256 public ownerId = 1;
+    // uint256 public ownerId = 1;
     uint256 public partnerId = 0;
     uint256 public bregisterFee = 10;
     uint256 public lotteryCreateFee = 10;
@@ -42,7 +44,6 @@ contract Autobet is
     string public lastresult;
     bool public callresult;
     address public autobetUseraddress;
-    uint256 public totalLotteryCreationFees;
     uint256 public totalWinners;
     uint256 public totalPartnerPay;
     uint256 public totalDraws;
@@ -141,6 +142,7 @@ contract Autobet is
     mapping(address => uint256) public amountEarned;
     mapping(address => uint256) public amountLocked;
     mapping(address => uint256) public commissionEarned;
+     mapping(address => uint256) public totalLotteryCreationFees;
     mapping(address => uint256) public winnerTax;
     mapping(uint256 => uint256) public totalProfits;
 
@@ -218,6 +220,7 @@ contract Autobet is
 
         amountEarned[msg.sender] = 0;
         commissionEarned[msg.sender] = 0;
+        totalLotteryCreationFees[msg.sender] = 0;
     }
 
     function setCallresult(bool _callresult) external {
@@ -276,11 +279,13 @@ contract Autobet is
             "Not a registered creator"
         );
 
+         require(
+            IABUser(autobetUseraddress).getMinPrize(msg.sender)  <= totalPrize,
+            "Not allowed minimum winning amount"
+        );
         require(
-            IABUser(autobetUseraddress).getMinPrize(msg.sender) <= totalPrize &&
-                IABUser(autobetUseraddress).getMaxPrize(msg.sender) >=
-                totalPrize,
-            "Not allowed winning amount"
+            IABUser(autobetUseraddress).getMaxPrize(msg.sender) >= totalPrize,
+            "Not allowed maximum winning amount"
         );
         require(
             LINK.balanceOf(address(this)) >= 1,
@@ -296,7 +301,7 @@ contract Autobet is
         require(startTime >= block.timestamp, "Start time passed");
         require(startTime < endtime, "End time less than start time");
 
-        totalLotteryCreationFees += msg.value;
+        totalLotteryCreationFees[admin] += msg.value;
 
         if (lottype == LotteryType.revolver || lottype == LotteryType.mine) {
             require(picknumbers == 1, "Only 1 number allowed");
@@ -750,8 +755,8 @@ contract Autobet is
             uint256 partnerpay = totalProfits[lotteryid]
                 .mul(LotteryDatas.partnershare)
                 .div(100);
-            totalPartnerPay += partnerpay; // Increase the total partner pay
-            partnerPayAmount[LotteryDatas.partnerAddress] += partnerpay; //Update the partnerPay for each partner
+            totalPartnerPay += partnerpay; // total partner pay
+            partnerPayAmount[LotteryDatas.partnerAddress] += partnerpay; //partnerPay for each partner
             payable(LotteryDatas.partnerAddress).transfer(partnerpay);
             amountLocked[LotteryDatas.ownerAddress] -=
                 totalProfits[lotteryid] -
@@ -855,6 +860,11 @@ contract Autobet is
             number[p++] = minelottery[lotteryid][i];
         }
         return (number);
+    }
+
+ function totalCommissionEarned() public view returns (uint256) {
+        uint256 totalCommission = commissionEarned[admin] + IABUser(autobetUseraddress).getRegistrationFees(msg.sender);
+        return totalCommission;
     }
 
     function withdrawcommission() external payable {
