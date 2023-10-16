@@ -17,6 +17,7 @@ interface IABUser {
 
     function getMaxPrize(address creatorAddress)
         external
+        view
         returns (uint256);
 
     function getReferee(address creatorAddress) external view returns (address);
@@ -25,7 +26,7 @@ interface IABUser {
 contract Autobet is
     AutomationCompatibleInterface,
     VRFV2WrapperConsumerBase,
-    ConfirmedOwner
+    ConfirmedOwner,IABUser
 {
     using SafeMath for uint256;
     uint256 public lotteryId = 1;
@@ -225,6 +226,22 @@ contract Autobet is
 
     function setCallresult(bool _callresult) external {
         callresult = _callresult;
+    }
+
+    function isCreator(address _creatorAddress) external view returns (bool) {
+         return ABUserInstance.isCreator(_creatorAddress);
+    }
+
+    function getMinPrize(address _creatorAddress) external view returns (uint256) {
+       return ABUserInstance.getMinPrize(_creatorAddress);
+    }
+
+    function getMaxPrize(address _creatorAddress) external view returns (uint256) {
+        return ABUserInstance.getMaxPrize(_creatorAddress);
+    }
+
+    function getReferee(address _creatorAddress) external view returns (address) {
+        return ABUserInstance.getReferee(_creatorAddress);
     }
 
     function substring(

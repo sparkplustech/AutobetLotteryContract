@@ -1,41 +1,66 @@
 pragma solidity ^0.8.7;
+
 // SPDX-License-Identifier: Unlicensed
 
-contract autobetlottery2 {
-
+contract autobetUser {
     uint256 public bregisterFee = 10;
     address public admin;
     uint256 public ownerId = 1;
-    uint256 public partnerId = 0;
-    
 
-mapping(address => OwnerData) public organisationbyaddr;
-mapping(address => uint256) public amountEarned;
-mapping(address => uint256) public registerationFees;
-mapping(uint256 => address) public organisationbyid;
-mapping(address => PartnerData) public partnerbyaddr;
-mapping(uint256 => address) public partnerids;
+    mapping(address => OwnerData) public organisationbyaddr;
+    mapping(address => uint256) public amountEarned;
+    mapping(address => uint256) public registerationFees;
+    mapping(uint256 => address) public organisationbyid;
 
+    //  constructor(address _tokenAddress);
 
-//  constructor(address _tokenAddress);
-
-
-modifier onlyowner() {
+    modifier onlyowner() {
         require(organisationbyaddr[msg.sender].active, "Not a organisation");
         _;
     }
 
-     struct PartnerData {
-        string name;
-        string logoHash;
-        bool status;
-        string websiteAdd;
-        address partnerAddress;
-        uint256 createdOn;
-        uint256 partnerId;
+    constructor() {
+        admin = msg.sender;
+        organisationbyaddr[msg.sender] = OwnerData({
+            id: ownerId,
+            userAddress: msg.sender,
+            referee: address(0),
+            name: "Autobet",
+            phoneno: "",
+            dob: 0,
+            resiAddress: "",
+            email: "autobetlottery@gmail.com",
+            active: true,
+            minPrize: 0,
+            maxPrize: 1 * 10**30
+        });
+        amountEarned[msg.sender] = 0;
+        registerationFees[msg.sender] = 0;
+        organisationbyid[ownerId++] = msg.sender;
     }
 
-     struct OwnerData {
+    modifier onlyAdmin() {
+        require(admin == msg.sender, "not-a-admin");
+        _;
+    }
+
+    function isCreator(address creatorAddress) public view returns (bool) {
+        return organisationbyaddr[creatorAddress].active;
+    }
+
+    function getMinPrize(address creatorAddress) public view returns (uint256) {
+        return organisationbyaddr[creatorAddress].minPrize;
+    }
+
+    function getMaxPrize(address creatorAddress) public view returns (uint256) {
+        return organisationbyaddr[creatorAddress].maxPrize;
+    }
+
+    function getReferee(address creatorAddress) public view returns (address) {
+        return organisationbyaddr[creatorAddress].referee;
+    }
+
+    struct OwnerData {
         bool active;
         address userAddress;
         address referee;
@@ -49,7 +74,7 @@ modifier onlyowner() {
         uint256 minPrize;
     }
 
-function addOrganisation(
+    function addOrganisation(
         address _owner,
         address _referee,
         string memory _name,
@@ -61,8 +86,8 @@ function addOrganisation(
         uint256 _maxPrize
     ) external payable {
         assert(_owner != address(0));
-        uint256 median = (_minPrize + (_maxPrize))/(2);
-        uint256 fees = (median * bregisterFee)/(100);
+        uint256 median = (_minPrize + (_maxPrize)) / (2);
+        uint256 fees = (median * bregisterFee) / (100);
         require(
             organisationbyaddr[_owner].userAddress == address(0),
             "Already registered"
@@ -86,6 +111,9 @@ function addOrganisation(
         organisationbyid[ownerId++] = _owner;
     }
 
-
-
+    function transferAdmin(address newAdmin) external onlyAdmin {
+        require(newAdmin != address(0));
+        organisationbyaddr[newAdmin] = organisationbyaddr[msg.sender];
+        admin = newAdmin;
+    }
 }
