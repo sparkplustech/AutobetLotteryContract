@@ -1,17 +1,20 @@
 pragma solidity ^0.8.7;
 // SPDX-License-Identifier: Unlicensed
 
-contract autobetUser {
+contract autobetlottery2 {
 
     uint256 public bregisterFee = 10;
     address public admin;
     uint256 public ownerId = 1;
+    uint256 public partnerId = 0;
     
 
 mapping(address => OwnerData) public organisationbyaddr;
 mapping(address => uint256) public amountEarned;
-mapping(address => uint256) public commissionEarned;
+mapping(address => uint256) public registerationFees;
 mapping(uint256 => address) public organisationbyid;
+mapping(address => PartnerData) public partnerbyaddr;
+mapping(uint256 => address) public partnerids;
 
 
 //  constructor(address _tokenAddress);
@@ -22,42 +25,15 @@ modifier onlyowner() {
         _;
     }
 
-    constructor()
-    {
-        admin = msg.sender;
-        organisationbyaddr[msg.sender] = OwnerData({
-            id: ownerId,
-            userAddress: msg.sender,
-            referee: address(0),
-            name: "Autobet",
-            phoneno: "",
-            dob: 0,
-            resiAddress: "",
-            email: "autobetlottery@gmail.com",
-            active: true,
-            minPrize: 0,
-            maxPrize: 1 * 10 ** 30
-        });
-        amountEarned[msg.sender] = 0;
-        commissionEarned[msg.sender] = 0;
-        organisationbyid[ownerId++] = msg.sender;
+     struct PartnerData {
+        string name;
+        string logoHash;
+        bool status;
+        string websiteAdd;
+        address partnerAddress;
+        uint256 createdOn;
+        uint256 partnerId;
     }
-
-    function isCreator(address creatorAddress) public view returns (bool) {
-    return organisationbyaddr[creatorAddress].active;
-}
-
-function getMinPrize(address creatorAddress) public view returns (uint256) {
-    return organisationbyaddr[creatorAddress].minPrize;
-}
-
-function getMaxPrize(address creatorAddress) public view returns (uint256) {
-    return organisationbyaddr[creatorAddress].maxPrize;
-}
-
-function getReferee(address creatorAddress) public view returns (address) {
-    return organisationbyaddr[creatorAddress].referee;
-}
 
      struct OwnerData {
         bool active;
@@ -106,9 +82,10 @@ function addOrganisation(
             maxPrize: _maxPrize
         });
         amountEarned[_owner] = 0;
-        commissionEarned[admin] += msg.value;
+        registerationFees[admin] += msg.value;
         organisationbyid[ownerId++] = _owner;
     }
+
 
 
 }

@@ -7,7 +7,6 @@ import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
 import "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-// import "./autobetUser.sol";
 interface IABUser {
     function isCreator(address) external view returns (bool);
 
@@ -18,7 +17,6 @@ interface IABUser {
 
     function getMaxPrize(address creatorAddress)
         external
-        view
         returns (uint256);
 
     function getReferee(address creatorAddress) external view returns (address);
@@ -49,6 +47,10 @@ contract Autobet is
     uint256 minPrize = ABUserInstance.getMinPrize(msg.sender);
     uint256 maxPrize = ABUserInstance.getMaxPrize(msg.sender);
     address referee = ABUserInstance.getReferee(msg.sender);
+    uint256 public totalLotteryCreationFees;
+    uint256 public totalWinners;
+    uint256 public totalPartnerPay;
+    uint256 public totalDraws;
 
     enum LotteryState {
         open,
@@ -84,20 +86,6 @@ contract Autobet is
         uint256[] numbersPicked;
     }
 
-    //  struct OwnerData  {
-    //   bool active;
-    //     address userAddress;
-    //     address referee;
-    //     string name;
-    //     string phoneno;
-    //     uint256 dob;
-    //     string email;
-    //     string resiAddress;
-    //     uint256 id;
-    //     uint256 maxPrize;
-    //     uint256 minPrize;
-    // }
-
     struct LotteryData {
         uint256 lotteryId;
         uint256 pickNumbers; //ticket numbers need to be selected
@@ -131,11 +119,6 @@ contract Autobet is
         uint256[] randomWords;
     }
 
-    // modifier onlyowner() {
-    //     require(organisationbyaddr[msg.sender].active, "Not a organisation");
-    //     _;
-    // }
-
     modifier onlyAdmin() {
         require(admin == msg.sender, "not-a-admin");
         _;
@@ -163,6 +146,7 @@ contract Autobet is
     mapping(address => uint256) public amountEarned;
     mapping(address => uint256) public amountLocked;
     mapping(address => uint256) public commissionEarned;
+    mapping(address => uint256) public winnerTax;
     mapping(uint256 => uint256) public totalProfits;
 
     mapping(address => uint256) public tokenearned;
@@ -186,6 +170,7 @@ contract Autobet is
     // Mapping of lottery id => user address => no of tickets
     mapping(uint256 => mapping(address => uint256)) public lotteryTickets;
     mapping(string => address) public TicketsList;
+    mapping(address => uint256) public partnerPayAmount;
 
     event LotteryBought(
         uint256[] numbers,
@@ -236,7 +221,6 @@ contract Autobet is
 
         amountEarned[msg.sender] = 0;
         commissionEarned[msg.sender] = 0;
-        // organisationbyid[ownerId++] = msg.sender;
     }
 
     function setCallresult(bool _callresult) external {
@@ -277,10 +261,6 @@ contract Autobet is
         return result;
     }
 
-    // function getCreatorData(address creatorAddress) public view returns (bool, address, address, string memory, string memory, uint256, string memory, string memory, uint256, uint256, uint256) {
-    //     return autobetUser(autobetUseraddress).organisationbyaddr(creatorAddress);
-    // }
-
     function createLottery(
         uint256 entryfee,
         uint256 picknumbers,
@@ -317,6 +297,9 @@ contract Autobet is
         require(picknumbers <= capacity, "capacity is less");
         require(startTime >= block.timestamp, "Start time passed");
         require(startTime < endtime, "End time less than start time");
+
+        totalLotteryCreationFees += msg.value;
+
         if (lottype == LotteryType.revolver || lottype == LotteryType.mine) {
             require(picknumbers == 1, "Only 1 number allowed");
         }
@@ -676,6 +659,7 @@ contract Autobet is
                 createRevolverRollover(lotteryid);
             }
         }
+        totalDraws++;
     }
 
     function getmrlwinner(
@@ -781,9 +765,13 @@ contract Autobet is
             payable(useraddressdata).transfer(finalAmount);
             emit WinnerPaid(useraddressdata, lotteryid, finalAmount);
             commissionEarned[admin] += subtAmt;
+            winnerTax[admin] += subtAmt;
+            totalWinners++;
             uint256 partnerpay = totalProfits[lotteryid]
                 .mul(LotteryDatas.partnershare)
                 .div(100);
+            totalPartnerPay += partnerpay; // Increase the total partner pay
+            partnerPayAmount[LotteryDatas.partnerAddress] += partnerpay;//Update the partnerPay for each partner
             payable(LotteryDatas.partnerAddress).transfer(partnerpay);
             amountLocked[LotteryDatas.ownerAddress] -=
                 totalProfits[lotteryid] -
@@ -964,12 +952,7 @@ contract Autobet is
         IERC20(tokenAdd).transfer(to, amount);
     }
 
-    // function transferAdmin(address newAdmin) external onlyAdmin {
-    //     require(newAdmin != address(0));
-    //     autobetUser.OwnerData memory newAdminData = autobetuserInstance.getCreatorData(newAdmin);
-    //     newAdminData = newAdminData[msg.sender];
-    //     admin = newAdmin;
-    // }
+ 
 
     function addEditPartnerDetails(
         string memory _name,
