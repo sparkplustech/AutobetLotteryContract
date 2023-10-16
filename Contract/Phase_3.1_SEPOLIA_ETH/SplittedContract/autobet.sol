@@ -10,15 +10,13 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 interface IABUser {
     function isCreator(address) external view returns (bool);
 
-    function getMinPrize(address creatorAddress)
-        external
-        view
-        returns (uint256);
+    function getMinPrize(
+        address creatorAddress
+    ) external view returns (uint256);
 
-    function getMaxPrize(address creatorAddress)
-        external
-        view
-        returns (uint256);
+    function getMaxPrize(
+        address creatorAddress
+    ) external view returns (uint256);
 
     function getReferee(address creatorAddress) external view returns (address);
 }
@@ -26,7 +24,7 @@ interface IABUser {
 contract Autobet is
     AutomationCompatibleInterface,
     VRFV2WrapperConsumerBase,
-    ConfirmedOwner,IABUser
+    ConfirmedOwner
 {
     using SafeMath for uint256;
     uint256 public lotteryId = 1;
@@ -44,10 +42,6 @@ contract Autobet is
     string public lastresult;
     bool public callresult;
     address public autobetUseraddress;
-    IABUser public ABUserInstance;
-    uint256 minPrize = ABUserInstance.getMinPrize(msg.sender);
-    uint256 maxPrize = ABUserInstance.getMaxPrize(msg.sender);
-    address referee = ABUserInstance.getReferee(msg.sender);
     uint256 public totalLotteryCreationFees;
     uint256 public totalWinners;
     uint256 public totalPartnerPay;
@@ -208,7 +202,10 @@ contract Autobet is
         uint256 date
     );
 
-    constructor(address _tokenAddress, address _autobetUseraddress)
+    constructor(
+        address _tokenAddress,
+        address _autobetUseraddress
+    )
         ConfirmedOwner(msg.sender)
         VRFV2WrapperConsumerBase(
             0x779877A7B0D9E8603169DdbD7836e478b4624789, // LINK Token
@@ -216,7 +213,6 @@ contract Autobet is
         )
     {
         autobetUseraddress = _autobetUseraddress;
-        ABUserInstance = IABUser(autobetUseraddress);
         admin = msg.sender;
         tokenAddress = _tokenAddress;
 
@@ -226,22 +222,6 @@ contract Autobet is
 
     function setCallresult(bool _callresult) external {
         callresult = _callresult;
-    }
-
-    function isCreator(address _creatorAddress) external view returns (bool) {
-         return ABUserInstance.isCreator(_creatorAddress);
-    }
-
-    function getMinPrize(address _creatorAddress) external view returns (uint256) {
-       return ABUserInstance.getMinPrize(_creatorAddress);
-    }
-
-    function getMaxPrize(address _creatorAddress) external view returns (uint256) {
-        return ABUserInstance.getMaxPrize(_creatorAddress);
-    }
-
-    function getReferee(address _creatorAddress) external view returns (address) {
-        return ABUserInstance.getReferee(_creatorAddress);
     }
 
     function substring(
@@ -257,11 +237,10 @@ contract Autobet is
         return string(result);
     }
 
-    function compareStrings(string memory a, string memory b)
-        internal
-        pure
-        returns (bool)
-    {
+    function compareStrings(
+        string memory a,
+        string memory b
+    ) internal pure returns (bool) {
         return (keccak256(abi.encodePacked((a))) ==
             keccak256(abi.encodePacked((b))));
     }
@@ -293,12 +272,14 @@ contract Autobet is
         LotteryType lottype
     ) public payable {
         require(
-            ABUserInstance.isCreator(msg.sender),
+            IABUser(autobetUseraddress).isCreator(msg.sender),
             "Not a registered creator"
         );
 
         require(
-            minPrize <= totalPrize && maxPrize >= totalPrize,
+            IABUser(autobetUseraddress).getMinPrize(msg.sender) <= totalPrize &&
+                IABUser(autobetUseraddress).getMaxPrize(msg.sender) >=
+                totalPrize,
             "Not allowed winning amount"
         );
         require(
@@ -346,7 +327,7 @@ contract Autobet is
             (totalPrize).div(entryfee) +
             (totalPrize).mul(10).div(entryfee) /
             100;
-
+        address referee = IABUser(autobetUseraddress).getReferee(msg.sender);
         if (referee != address(0)) {
             refereeEarned[referee] =
                 refereeEarned[referee] +
@@ -397,10 +378,10 @@ contract Autobet is
         commissionEarned[admin] += (totalPrize * lotteryCreateFee).div(100);
     }
 
-    function buyNormalLottery(uint256[] memory numbers, uint256 lotteryid)
-        public
-        payable
-    {
+    function buyNormalLottery(
+        uint256[] memory numbers,
+        uint256 lotteryid
+    ) public payable {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
@@ -424,10 +405,10 @@ contract Autobet is
         }
     }
 
-    function buySpinnerLottery(uint256 numbers, uint256 lotteryid)
-        public
-        payable
-    {
+    function buySpinnerLottery(
+        uint256 numbers,
+        uint256 lotteryid
+    ) public payable {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
         require(
@@ -442,10 +423,10 @@ contract Autobet is
         getWinners(lotteryid, numbers, msg.sender);
     }
 
-    function buyMissilelottery(string memory code, uint256 lotteryid)
-        public
-        payable
-    {
+    function buyMissilelottery(
+        string memory code,
+        uint256 lotteryid
+    ) public payable {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
@@ -529,10 +510,10 @@ contract Autobet is
         spinBuyer[_requestId] = buyer;
     }
 
-    function storeRequestedId(uint256 _lotteryId, bool _draw)
-        internal
-        returns (uint256 id)
-    {
+    function storeRequestedId(
+        uint256 _lotteryId,
+        bool _draw
+    ) internal returns (uint256 id) {
         uint256 _requestId = requestRandomness(
             callbackGasLimit,
             requestConfirmations,
@@ -577,27 +558,9 @@ contract Autobet is
         }
     }
 
-    function updateMinMax(uint256 _minPrize, uint256 _maxPrize) public payable {
-        require(
-            ABUserInstance.isCreator(msg.sender),
-            "Not a registered creator"
-        );
-        require(_maxPrize > 0, "Cant be below zero");
-        require(_minPrize > 0, "Cant be below zero");
-        uint256 median = ((_minPrize.add(_maxPrize)).mul(10**18)).div(2);
-        uint256 fees = (median * bregisterFee).div(100);
-        require(fees == msg.value, "Register Fee not matching");
-        minPrize = _minPrize;
-        maxPrize = _maxPrize;
-        commissionEarned[admin] += msg.value;
-    }
-
-    function checkUpkeep(bytes calldata)
-        external
-        view
-        override
-        returns (bool upkeepNeeded, bytes memory result)
-    {
+    function checkUpkeep(
+        bytes calldata
+    ) external view override returns (bool upkeepNeeded, bytes memory result) {
         upkeepNeeded = false;
         uint256 id = 0;
         require(
@@ -788,7 +751,7 @@ contract Autobet is
                 .mul(LotteryDatas.partnershare)
                 .div(100);
             totalPartnerPay += partnerpay; // Increase the total partner pay
-            partnerPayAmount[LotteryDatas.partnerAddress] += partnerpay;//Update the partnerPay for each partner
+            partnerPayAmount[LotteryDatas.partnerAddress] += partnerpay; //Update the partnerPay for each partner
             payable(LotteryDatas.partnerAddress).transfer(partnerpay);
             amountLocked[LotteryDatas.ownerAddress] -=
                 totalProfits[lotteryid] -
@@ -806,11 +769,9 @@ contract Autobet is
         callresult = false;
     }
 
-    function getUserlotteries(address useraddress)
-        external
-        view
-        returns (uint256[] memory lotteryids)
-    {
+    function getUserlotteries(
+        address useraddress
+    ) external view returns (uint256[] memory lotteryids) {
         uint256[] memory lotteries = new uint256[](
             userlotterydata[useraddress].length
         );
@@ -820,11 +781,9 @@ contract Autobet is
         return lotteries;
     }
 
-    function getPartnerlotteries(address partneraddress)
-        external
-        view
-        returns (uint256[] memory lotteryids)
-    {
+    function getPartnerlotteries(
+        address partneraddress
+    ) external view returns (uint256[] memory lotteryids) {
         uint256[] memory lotteries = new uint256[](
             partnerlotterydata[partneraddress].length
         );
@@ -842,11 +801,9 @@ contract Autobet is
         tokenAddress = _tokenAddress;
     }
 
-    function getOrglotteries(address useraddress)
-        external
-        view
-        returns (uint256[] memory lotterids)
-    {
+    function getOrglotteries(
+        address useraddress
+    ) external view returns (uint256[] memory lotterids) {
         uint256[] memory lotteries = new uint256[](
             orglotterydata[useraddress].length
         );
@@ -856,7 +813,9 @@ contract Autobet is
         return lotteries;
     }
 
-    function getLotteryNumbers(uint256 lotteryid)
+    function getLotteryNumbers(
+        uint256 lotteryid
+    )
         public
         view
         returns (uint256[] memory tickets, address[] memory useraddress)
@@ -887,11 +846,9 @@ contract Autobet is
         return (userdata, useraddressdata);
     }
 
-    function getMineLotteryNumbers(uint256 lotteryid)
-        public
-        view
-        returns (uint256[] memory numbers)
-    {
+    function getMineLotteryNumbers(
+        uint256 lotteryid
+    ) public view returns (uint256[] memory numbers) {
         uint256[] memory number = new uint256[](minelottery[lotteryid].length);
         uint256 p = 0;
         for (uint256 i = 0; i < minelottery[lotteryid].length; i++) {
@@ -968,8 +925,6 @@ contract Autobet is
         );
         IERC20(tokenAdd).transfer(to, amount);
     }
-
- 
 
     function addEditPartnerDetails(
         string memory _name,

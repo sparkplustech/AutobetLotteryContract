@@ -1,12 +1,13 @@
 pragma solidity ^0.8.7;
 
 // SPDX-License-Identifier: Unlicensed
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract autobetUser {
     uint256 public bregisterFee = 10;
     address public admin;
     uint256 public ownerId = 1;
-
+    using SafeMath for uint256;
     mapping(address => OwnerData) public organisationbyaddr;
     mapping(address => uint256) public amountEarned;
     mapping(address => uint256) public registerationFees;
@@ -32,7 +33,7 @@ contract autobetUser {
             email: "autobetlottery@gmail.com",
             active: true,
             minPrize: 0,
-            maxPrize: 1 * 10**30
+            maxPrize: 1 * 10 ** 30
         });
         amountEarned[msg.sender] = 0;
         registerationFees[msg.sender] = 0;
@@ -115,5 +116,19 @@ contract autobetUser {
         require(newAdmin != address(0));
         organisationbyaddr[newAdmin] = organisationbyaddr[msg.sender];
         admin = newAdmin;
+    }
+
+    function updateMinMax(
+        uint256 _minPrize,
+        uint256 _maxPrize
+    ) public payable onlyowner {
+        require(_maxPrize > 0, "Cant be below zero");
+        require(_minPrize > 0, "Cant be below zero");
+        uint256 median = ((_minPrize.add(_maxPrize)).mul(10 ** 18)).div(2);
+        uint256 fees = (median * bregisterFee).div(100);
+        require(fees == msg.value, "Register Fee not matching");
+        [msg.sender].minPrize = _minPrize;
+        organisationbyaddr[msg.sender].maxPrize = _maxPrize;
+        organisationbyaddr[admin].commissionEarned += msg.value;
     }
 }
