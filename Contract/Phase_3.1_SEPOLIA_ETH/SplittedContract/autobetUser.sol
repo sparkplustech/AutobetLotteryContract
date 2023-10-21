@@ -15,6 +15,19 @@ contract autobetUser {
 
     //  constructor(address _tokenAddress);
 
+event OrganisationAdded(
+    uint256 id,
+    address owner,
+        address referee,
+        string name,
+        string phoneno,
+        uint256 dob,
+        string email,
+        string  resiAddress,
+        uint256 minPrize,
+        uint256 maxPrize
+
+);
     modifier onlyowner() {
         require(organisationbyaddr[msg.sender].active, "Not a organisation");
         _;
@@ -114,6 +127,16 @@ contract autobetUser {
         amountEarned[_owner] = 0;
         registrationFees[admin] += msg.value;
         organisationbyid[ownerId++] = _owner;
+
+        emit OrganisationAdded(ownerId,_owner,
+        _referee,
+        _name,
+        _phoneno,
+        _dob,
+        _email,
+        _resiAddress,
+        _minPrize,
+        _maxPrize);
     }
 
     function transferAdmin(address newAdmin) external onlyAdmin {
