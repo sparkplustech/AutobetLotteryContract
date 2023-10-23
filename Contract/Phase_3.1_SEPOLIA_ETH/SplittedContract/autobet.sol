@@ -23,6 +23,7 @@ interface IABUser {
     function getReferee(address creatorAddress) external view returns (address);
 
     function getRegistrationFees(address _user) external view returns (uint256);
+
 }
 
 contract Autobet is
@@ -32,9 +33,9 @@ contract Autobet is
 {
     using SafeMath for uint256;
     uint256 public lotteryId = 1;
-    uint256 public ownerId = 1;
+    // uint256 public ownerId = 1;
     uint256 public partnerId = 0;
-    uint256 public bregisterFee = 10;
+    // uint256 public bregisterFee = 10;
     uint256 public lotteryCreateFee = 10;
     uint256 public transferFeePerc = 10;
     uint256 public minimumRollover = 100;
@@ -173,23 +174,21 @@ contract Autobet is
     mapping(address => uint256) public partnerPayAmount;
 
     event LotteryCreated(
+        address owner,
         uint256 lotteryId,
         uint256 entryfee,
-        uint256 picknumbers,
         uint256 totalPrize,
         uint256 startTime,
         uint256 endtime,
         uint256 drawtime,
-        uint256 capacity,
         uint256 rolloverperct,
-        uint256 rolloverday,
         uint256 partnershare,
         address partner,
         LotteryType lottype
     );
 
     event PartnerCreated(
-         string name,
+        string name,
         string logoHash,
         bool status,
         string websiteAdd,
@@ -225,10 +224,7 @@ contract Autobet is
         uint256 amountpaid
     );
 
-    event RolloverHappened(
-        uint256 lotteryId,
-        uint256 rolloverDays
-    );
+    event RolloverHappened(uint256 lotteryId, uint256 rolloverDays);
 
     event SpinLotteryResult(
         address indexed useraddressdata,
@@ -311,7 +307,7 @@ contract Autobet is
             "Not a registered creator"
         );
 
-        require(
+         require(
             IABUser(autobetUseraddress).getMinPrize(msg.sender) <= totalPrize,
             "Not allowed minimum winning amount"
         );
@@ -325,10 +321,10 @@ contract Autobet is
         );
 
         require(totalPrize > 0, "Low totalPrice");
-        uint256 minTotalPrice = totalPrize.add(
-            (totalPrize * lotteryCreateFee) / 100
+        require(
+            msg.value == totalPrize.add((totalPrize * lotteryCreateFee) / 100),
+            "Amount not matching"
         );
-        require(msg.value == minTotalPrice, "Amount not matching");
         require(picknumbers <= capacity, "capacity is less");
         require(startTime >= block.timestamp, "Start time passed");
         require(startTime < endtime, "End time less than start time");
@@ -380,16 +376,14 @@ contract Autobet is
         lotteryId++;
 
         emit LotteryCreated(
+            msg.sender,
             lotteryId,
             entryfee,
-            picknumbers,
             totalPrize,
             startTime,
             endtime,
             drawtime,
-            capacity,
             rolloverperct,
-            rolloverday,
             partnershare,
             partner,
             lottype
@@ -518,7 +512,7 @@ contract Autobet is
             .mul(LotteryDatas.rolloverperct)
             .div(100);
 
-            emit RolloverHappened(lotteryid, LotteryDates.rolloverdays);
+        emit RolloverHappened(lotteryid, LotteryDates.rolloverdays);
     }
 
     function doInternalMaths(
@@ -788,7 +782,7 @@ contract Autobet is
             lottery[lotteryId].minPlayers = LotteryDatas.minPlayers;
             lotteryDates[lotteryId].level = LotteryDates.level + 1;
             lotteryId++;
-            emit RolloverHappened(lotteryid,LotteryDates.rolloverdays);
+            emit RolloverHappened(lotteryid, LotteryDates.rolloverdays);
         } else {
             LotteryDatas.status = LotteryState.close;
         }
@@ -1031,14 +1025,13 @@ contract Autobet is
                 createdOn: _createdOn
             });
         }
-         emit PartnerCreated(
-         _name,
-        _logoHash,
-        _status,
-       _websiteAdd,
-        _partnerAddress,
-        block.timestamp
-    );
+        emit PartnerCreated(
+            _name,
+            _logoHash,
+            _status,
+            _websiteAdd,
+            _partnerAddress,
+            block.timestamp
+        );
     }
-   
 }
