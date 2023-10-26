@@ -979,6 +979,11 @@ contract Autobet is
         IERC20(tokenAdd).transfer(to, amount);
     }
 
+    function transferAdmin(address newAdmin) external onlyAdmin {
+        require(newAdmin != address(0));
+        admin = newAdmin;
+    }
+
     function addEditPartnerDetails(
         string memory _name,
         string memory _logoHash,
