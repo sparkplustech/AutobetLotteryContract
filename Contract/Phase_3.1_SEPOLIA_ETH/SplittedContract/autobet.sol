@@ -191,6 +191,7 @@ contract Autobet is
         uint256 createdOn
     );
     event LotteryBought(
+        address creatorAddress,
         uint256[] numbers,
         uint256 indexed lotteryId,
         uint256 boughtOn,
@@ -205,9 +206,17 @@ contract Autobet is
         string number
     );
 
+    event LotterySaleResult(
+         address useraddressdata,
+        uint256 indexed lotteryId,
+        uint256 drawOn,
+        uint256 number
+    );
+
     event LotteryWinner(uint256 Lotteryid, uint256 selectedNum, address buyer);
 
     event WinnerPaid(
+        address creatorAddress,
         address indexed useraddressdata,
         uint256 indexed lotteryId,
         uint256 amountwon
@@ -219,7 +228,7 @@ contract Autobet is
         uint256 amountpaid
     );
 
-    event RolloverHappened(uint256 lotteryId, uint256 rolloverDays);
+    event RolloverHappened(address creatorAddress,uint256 lotteryId, uint256 rolloverDays);
 
     event SpinLotteryResult(
         address indexed useraddressdata,
@@ -370,8 +379,6 @@ contract Autobet is
             storeRequestedId(lotteryId, false);
         }
 
-        lotteryId++;
-
         emit LotteryCreated(
             msg.sender,
             lotteryId,
@@ -383,6 +390,7 @@ contract Autobet is
             partner,
             uint(lottype)
         );
+        lotteryId++;
     }
 
     function commonLotteryDetails(
@@ -495,6 +503,7 @@ contract Autobet is
     function dorolloverMath(uint256 lotteryid) internal {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
+        address lotteryOwner = LotteryDatas.ownerAddress;
         LotteryDates.level = LotteryDates.level + 1;
         LotteryDates.drawTime = LotteryDates.drawTime.add(
             LotteryDates.rolloverdays
@@ -507,7 +516,7 @@ contract Autobet is
             .mul(LotteryDatas.rolloverperct)
             .div(100);
 
-        emit RolloverHappened(lotteryid, LotteryDates.rolloverdays);
+        emit RolloverHappened(lotteryOwner,lotteryid, LotteryDates.rolloverdays);
     }
 
     function doInternalMaths(
@@ -517,6 +526,7 @@ contract Autobet is
         uint256[] memory numbarray
     ) internal {
         LotteryData storage LotteryDatas = lottery[lotteryid];
+        
         lotteryTickets[lotteryid][callerAdd] += 1;
         LotteryDatas.Tickets.push(
             TicketsData({
@@ -526,6 +536,7 @@ contract Autobet is
                 boughtOn: block.timestamp
             })
         );
+
         amountspend[callerAdd] += amt;
         totalSale = totalSale + 1;
         totalProfits[lotteryid] += amt;
@@ -535,7 +546,9 @@ contract Autobet is
         tokenearned[callerAdd] += (
             (LotteryDatas.entryFee * tokenEarnPercent).div(100)
         );
+        address lotteryowner = LotteryDatas.ownerAddress;
         emit LotteryBought(
+            lotteryowner,
             numbarray,
             lotteryid,
             block.timestamp,
@@ -552,7 +565,7 @@ contract Autobet is
         uint256 _requestId = storeRequestedId(_lotteryId, true);
         spinNumbers[_requestId] = selectedNum;
         spinBuyer[_requestId] = buyer;
-        emit LotteryWinner(_lotteryId, selectedNum, buyer);
+        emit LotterySaleResult(spinBuyer[_requestId],_lotteryId,spinNumbers[_requestId],selectedNum);
     }
 
     function storeRequestedId(
@@ -750,6 +763,7 @@ contract Autobet is
     function createRevolverRollover(uint256 lotteryid) internal {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
+        // address lotteryOwner = LotteryDatas.ownerAddress;
         uint256 newTotalPrize = LotteryDatas.totalPrize +
             LotteryDatas.entryFee.mul(LotteryDatas.rolloverperct).div(100);
         if (newTotalPrize >= minimumRollover) {
@@ -773,8 +787,8 @@ contract Autobet is
             lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
             lottery[lotteryId].minPlayers = LotteryDatas.minPlayers;
             lotteryDates[lotteryId].level = LotteryDates.level + 1;
+            emit RolloverHappened(LotteryDatas.ownerAddress,lotteryid, LotteryDates.rolloverdays);
             lotteryId++;
-            emit RolloverHappened(lotteryid, LotteryDates.rolloverdays);
         } else {
             LotteryDatas.status = LotteryState.close;
         }
@@ -790,7 +804,8 @@ contract Autobet is
             uint256 finalAmount = prizeAmt.sub(subtAmt);
             payable(useraddressdata).transfer(finalAmount);
             totalWinnerAmount[admin] += finalAmount;
-            emit WinnerPaid(useraddressdata, lotteryid, finalAmount);
+            address lotteryowner = LotteryDatas.ownerAddress;
+            emit WinnerPaid(lotteryowner,useraddressdata, lotteryid, finalAmount);
             commissionEarned[admin] += subtAmt;
             winnerTax[admin] += subtAmt;
             totalWinners++;
