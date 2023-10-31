@@ -213,8 +213,6 @@ contract Autobet is
         uint256 number
     );
 
-    event LotteryWinner(uint256 Lotteryid, uint256 selectedNum, address buyer);
-
     event WinnerPaid(
         address creatorAddress,
         address indexed useraddressdata,
@@ -223,6 +221,7 @@ contract Autobet is
     );
 
     event PartnerPaid(
+        address ownerAddress,
         address indexed partneradddress,
         uint256 indexed lotteryId,
         uint256 amountpaid
@@ -823,6 +822,7 @@ contract Autobet is
                 partnerpay;
 
             emit PartnerPaid(
+                LotteryDatas.ownerAddress,
                 LotteryDatas.partnerAddress,
                 lotteryid,
                 partnerpay
