@@ -334,8 +334,6 @@ contract Autobet is
         require(startTime >= block.timestamp, "Start time passed");
         require(startTime < endtime, "End time less than start time");
 
-        totalLotteryCreationFees[admin] += msg.value;
-
         if (lottype == LotteryType.revolver || lottype == LotteryType.mine) {
             require(picknumbers == 1, "Only 1 number allowed");
         }
@@ -424,6 +422,7 @@ contract Autobet is
         lottery[_lotteryId].partnershare = partnershare;
         orglotterydata[owner].push(_lotteryId);
         partnerlotterydata[partnerAddress].push(_lotteryId);
+        totalLotteryCreationFees[admin] += (totalPrize * lotteryCreateFee).div(100);
         commissionEarned[admin] += (totalPrize * lotteryCreateFee).div(100);
     }
 
@@ -926,7 +925,7 @@ contract Autobet is
     }
 
     function withdrawcommission() external payable {
-        uint256 amount = amountEarned[msg.sender];
+        uint256 amount = amountEarned[msg.sender] ;
         uint256 subtAmt = amount.mul(transferFeePerc).div(100);
         uint256 finalAmount = amount.sub(subtAmt);
         payable(msg.sender).transfer(finalAmount);
@@ -936,9 +935,12 @@ contract Autobet is
     }
 
     function withdrawAdmin() external payable onlyAdmin {
-        uint256 amount = commissionEarned[admin];
+        uint256 amount = commissionEarned[admin] ;
         payable((msg.sender)).transfer(amount);
         commissionEarned[admin] = 0;
+        winnerTax[admin]=0;
+        totalLotteryCreationFees[admin]=0;
+
     }
 
     function withdrawrefereecommission() external payable {

@@ -15,19 +15,18 @@ contract autobetUser {
 
     //  constructor(address _tokenAddress);
 
-event OrganisationAdded(
-    uint256 id,
-    address owner,
+    event OrganisationAdded(
+        uint256 id,
+        address owner,
         address referee,
         string name,
         string phoneno,
         uint256 dob,
         string email,
-        string  resiAddress,
+        string resiAddress,
         uint256 minPrize,
         uint256 maxPrize
-
-);
+    );
     modifier onlyowner() {
         require(organisationbyaddr[msg.sender].active, "Not a organisation");
         _;
@@ -46,7 +45,7 @@ event OrganisationAdded(
             email: "autobetlottery@gmail.com",
             active: true,
             minPrize: 0,
-            maxPrize: 1 * 10 ** 30
+            maxPrize: 1 * 10**30
         });
         amountEarned[msg.sender] = 0;
         registrationFees[msg.sender] = 0;
@@ -66,6 +65,14 @@ event OrganisationAdded(
         return organisationbyaddr[creatorAddress].minPrize;
     }
 
+    function getCreatorId(address creatorAddress)
+        public
+        view
+        returns (uint256)
+    {
+        return organisationbyaddr[creatorAddress].id;
+    }
+
     function getMaxPrize(address creatorAddress) public view returns (uint256) {
         return organisationbyaddr[creatorAddress].maxPrize;
     }
@@ -74,9 +81,21 @@ event OrganisationAdded(
         return organisationbyaddr[creatorAddress].referee;
     }
 
-    function getRegistrationFees(address _user) external view returns (uint256) {
-    return registrationFees[_user];
-}
+    function getCreatorAddress(address userAddress)
+        public
+        view
+        returns (address)
+    {
+        return organisationbyaddr[userAddress].userAddress;
+    }
+
+    function getRegistrationFees(address _user)
+        external
+        view
+        returns (uint256)
+    {
+        return registrationFees[_user];
+    }
 
     struct OwnerData {
         bool active;
@@ -128,15 +147,18 @@ event OrganisationAdded(
         registrationFees[admin] += msg.value;
         organisationbyid[ownerId++] = _owner;
 
-        emit OrganisationAdded(ownerId,_owner,
-        _referee,
-        _name,
-        _phoneno,
-        _dob,
-        _email,
-        _resiAddress,
-        _minPrize,
-        _maxPrize);
+        emit OrganisationAdded(
+            ownerId,
+            _owner,
+            _referee,
+            _name,
+            _phoneno,
+            _dob,
+            _email,
+            _resiAddress,
+            _minPrize,
+            _maxPrize
+        );
     }
 
     function transferAdmin(address newAdmin) external onlyAdmin {
@@ -145,17 +167,28 @@ event OrganisationAdded(
         admin = newAdmin;
     }
 
-    function updateMinMax(
-        uint256 _minPrize,
-        uint256 _maxPrize
-    ) public payable onlyowner {
+    function updateMinMax(uint256 _minPrize, uint256 _maxPrize)
+        public
+        payable
+        onlyowner
+    {
         require(_maxPrize > 0, "Cant be below zero");
         require(_minPrize > 0, "Cant be below zero");
-        uint256 median = ((_minPrize.add(_maxPrize)).mul(10 ** 18)).div(2);
+        uint256 median = ((_minPrize.add(_maxPrize)).mul(10**18)).div(2);
         uint256 fees = (median * bregisterFee).div(100);
         require(fees == msg.value, "Register Fee not matching");
-organisationbyaddr[msg.sender].minPrize = _minPrize;
+        organisationbyaddr[msg.sender].minPrize = _minPrize;
         organisationbyaddr[msg.sender].maxPrize = _maxPrize;
         registrationFees[admin] += msg.value;
+    }
+
+    function withdrawRegisterationFees() external payable onlyAdmin {
+        uint256 amount = registrationFees[admin];
+        payable((msg.sender)).transfer(amount);
+        registrationFees[admin] = 0;
+    }
+    
+    function withdrawETH() external payable onlyAdmin {
+        payable(msg.sender).transfer(address(this).balance);
     }
 }
