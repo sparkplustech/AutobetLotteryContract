@@ -227,7 +227,7 @@ contract Autobet is
         uint256 amountpaid
     );
 
-    event RolloverHappened(address creatorAddress,uint256 lotteryId, uint256 rolloverDays);
+    event RolloverHappened(address creatorAddress,uint256 lotteryId, uint256 rolloverDays,uint256 rolloverperct);
 
     event SpinLotteryResult(
         address indexed useraddressdata,
@@ -514,7 +514,7 @@ contract Autobet is
             .mul(LotteryDatas.rolloverperct)
             .div(100);
 
-        emit RolloverHappened(lotteryOwner,lotteryid, LotteryDates.rolloverdays);
+        emit RolloverHappened(lotteryOwner,lotteryid, LotteryDates.rolloverdays,LotteryDatas.rolloverperct);
     }
 
     function doInternalMaths(
@@ -785,7 +785,7 @@ contract Autobet is
             lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
             lottery[lotteryId].minPlayers = LotteryDatas.minPlayers;
             lotteryDates[lotteryId].level = LotteryDates.level + 1;
-            emit RolloverHappened(LotteryDatas.ownerAddress,lotteryid, LotteryDates.rolloverdays);
+            emit RolloverHappened(LotteryDatas.ownerAddress,lotteryid, LotteryDatas.rolloverperct,LotteryDatas.rolloverperct);
             lotteryId++;
         } else {
             LotteryDatas.status = LotteryState.close;
