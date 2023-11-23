@@ -10,13 +10,15 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 interface IABUser {
     function isCreator(address) external view returns (bool);
 
-    function getMinPrize(
-        address creatorAddress
-    ) external view returns (uint256);
+    function getMinPrize(address creatorAddress)
+        external
+        view
+        returns (uint256);
 
-    function getMaxPrize(
-        address creatorAddress
-    ) external view returns (uint256);
+    function getMaxPrize(address creatorAddress)
+        external
+        view
+        returns (uint256);
 
     function getReferee(address creatorAddress) external view returns (address);
 
@@ -201,13 +203,14 @@ contract Autobet is
 
     event LotteryResult(
         address useraddressdata,
+        address creatorAddress,
         uint256 indexed lotteryId,
         uint256 drawOn,
         string number
     );
 
     event LotterySaleResult(
-         address useraddressdata,
+        address useraddressdata,
         uint256 indexed lotteryId,
         uint256 drawOn,
         uint256 number
@@ -227,20 +230,24 @@ contract Autobet is
         uint256 amountpaid
     );
 
-    event RolloverHappened(address creatorAddress,uint256 lotteryId, uint256 rolloverDays,uint256 rolloverperct);
+    event RolloverHappened(
+        address creatorAddress,
+        uint256 lotteryId,
+        uint256 rolloverDays,
+        uint256 rolloverperct
+    );
 
     event SpinLotteryResult(
         address indexed useraddressdata,
+        address creatorAddress,
         uint256 indexed lotteryId,
         uint256 selectedNum,
         uint256 winnerNum,
         uint256 date
     );
 
-    constructor(
-        address _tokenAddress,
-        address _autobetUseraddress
-    )
+
+    constructor(address _tokenAddress, address _autobetUseraddress)
         ConfirmedOwner(msg.sender)
         VRFV2WrapperConsumerBase(
             0x779877A7B0D9E8603169DdbD7836e478b4624789, // LINK Token
@@ -273,10 +280,11 @@ contract Autobet is
         return string(result);
     }
 
-    function compareStrings(
-        string memory a,
-        string memory b
-    ) internal pure returns (bool) {
+    function compareStrings(string memory a, string memory b)
+        internal
+        pure
+        returns (bool)
+    {
         return (keccak256(abi.encodePacked((a))) ==
             keccak256(abi.encodePacked((b))));
     }
@@ -385,7 +393,7 @@ contract Autobet is
             endtime,
             drawtime,
             partner,
-            uint(lottype)
+            uint256(lottype)
         );
         lotteryId++;
     }
@@ -422,14 +430,16 @@ contract Autobet is
         lottery[_lotteryId].partnershare = partnershare;
         orglotterydata[owner].push(_lotteryId);
         partnerlotterydata[partnerAddress].push(_lotteryId);
-        totalLotteryCreationFees[admin] += (totalPrize * lotteryCreateFee).div(100);
+        totalLotteryCreationFees[admin] += (totalPrize * lotteryCreateFee).div(
+            100
+        );
         commissionEarned[admin] += (totalPrize * lotteryCreateFee).div(100);
     }
 
-    function buyNormalLottery(
-        uint256[] memory numbers,
-        uint256 lotteryid
-    ) public payable {
+    function buyNormalLottery(uint256[] memory numbers, uint256 lotteryid)
+        public
+        payable
+    {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
@@ -453,10 +463,10 @@ contract Autobet is
         }
     }
 
-    function buySpinnerLottery(
-        uint256 numbers,
-        uint256 lotteryid
-    ) public payable {
+    function buySpinnerLottery(uint256 numbers, uint256 lotteryid)
+        public
+        payable
+    {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
         require(
@@ -471,10 +481,10 @@ contract Autobet is
         getWinners(lotteryid, numbers, msg.sender);
     }
 
-    function buyMissilelottery(
-        string memory code,
-        uint256 lotteryid
-    ) public payable {
+    function buyMissilelottery(string memory code, uint256 lotteryid)
+        public
+        payable
+    {
         LotteryData storage LotteryDatas = lottery[lotteryid];
         LotteryDate storage LotteryDates = lotteryDates[lotteryid];
         require(msg.value == LotteryDatas.entryFee, "Entry Fee not met");
@@ -514,7 +524,12 @@ contract Autobet is
             .mul(LotteryDatas.rolloverperct)
             .div(100);
 
-        emit RolloverHappened(lotteryOwner,lotteryid, LotteryDates.rolloverdays,LotteryDatas.rolloverperct);
+        emit RolloverHappened(
+            lotteryOwner,
+            lotteryid,
+            LotteryDates.rolloverdays,
+            LotteryDatas.rolloverperct
+        );
     }
 
     function doInternalMaths(
@@ -524,7 +539,7 @@ contract Autobet is
         uint256[] memory numbarray
     ) internal {
         LotteryData storage LotteryDatas = lottery[lotteryid];
-        
+
         lotteryTickets[lotteryid][callerAdd] += 1;
         LotteryDatas.Tickets.push(
             TicketsData({
@@ -563,13 +578,18 @@ contract Autobet is
         uint256 _requestId = storeRequestedId(_lotteryId, true);
         spinNumbers[_requestId] = selectedNum;
         spinBuyer[_requestId] = buyer;
-        emit LotterySaleResult(spinBuyer[_requestId],_lotteryId,spinNumbers[_requestId],selectedNum);
+        emit LotterySaleResult(
+            spinBuyer[_requestId],
+            _lotteryId,
+            spinNumbers[_requestId],
+            selectedNum
+        );
     }
 
-    function storeRequestedId(
-        uint256 _lotteryId,
-        bool _draw
-    ) internal returns (uint256 id) {
+    function storeRequestedId(uint256 _lotteryId, bool _draw)
+        internal
+        returns (uint256 id)
+    {
         uint256 _requestId = requestRandomness(
             callbackGasLimit,
             requestConfirmations,
@@ -614,9 +634,12 @@ contract Autobet is
         }
     }
 
-    function checkUpkeep(
-        bytes calldata
-    ) external view override returns (bool upkeepNeeded, bytes memory result) {
+    function checkUpkeep(bytes calldata)
+        external
+        view
+        override
+        returns (bool upkeepNeeded, bytes memory result)
+    {
         upkeepNeeded = false;
         uint256 id = 0;
         require(
@@ -681,6 +704,7 @@ contract Autobet is
             num = num.add(1);
             emit SpinLotteryResult(
                 spinBuyer[requestId],
+                LotteryDatas.ownerAddress,
                 lotteryid,
                 spinNumbers[requestId],
                 num,
@@ -741,7 +765,13 @@ contract Autobet is
         if (TicketsList[n] != address(0)) {
             LotteryDatas.status = LotteryState.resultdone;
             LotteryDatas.lotteryWinner = TicketsList[n];
-            emit LotteryResult(TicketsList[n], lotteryid, block.timestamp, n);
+            emit LotteryResult(
+                TicketsList[n],
+                LotteryDatas.ownerAddress,
+                lotteryid,
+                block.timestamp,
+                n
+            );
             paywinner(lotteryid, requestId);
         } else {
             dorolloverMath(lotteryid);
@@ -785,7 +815,12 @@ contract Autobet is
             lottery[lotteryId].lotteryType = LotteryDatas.lotteryType;
             lottery[lotteryId].minPlayers = LotteryDatas.minPlayers;
             lotteryDates[lotteryId].level = LotteryDates.level + 1;
-            emit RolloverHappened(LotteryDatas.ownerAddress,lotteryid, LotteryDatas.rolloverperct,LotteryDatas.rolloverperct);
+            emit RolloverHappened(
+                LotteryDatas.ownerAddress,
+                lotteryid,
+                LotteryDates.rolloverdays,
+                LotteryDatas.rolloverperct
+            );
             lotteryId++;
         } else {
             LotteryDatas.status = LotteryState.close;
@@ -803,7 +838,12 @@ contract Autobet is
             payable(useraddressdata).transfer(finalAmount);
             totalWinnerAmount[admin] += finalAmount;
             address lotteryowner = LotteryDatas.ownerAddress;
-            emit WinnerPaid(lotteryowner,useraddressdata, lotteryid, finalAmount);
+            emit WinnerPaid(
+                lotteryowner,
+                useraddressdata,
+                lotteryid,
+                finalAmount
+            );
             commissionEarned[admin] += subtAmt;
             winnerTax[admin] += subtAmt;
             totalWinners++;
@@ -830,9 +870,11 @@ contract Autobet is
         callresult = false;
     }
 
-    function getUserlotteries(
-        address useraddress
-    ) external view returns (uint256[] memory lotteryids) {
+    function getUserlotteries(address useraddress)
+        external
+        view
+        returns (uint256[] memory lotteryids)
+    {
         uint256[] memory lotteries = new uint256[](
             userlotterydata[useraddress].length
         );
@@ -842,9 +884,11 @@ contract Autobet is
         return lotteries;
     }
 
-    function getPartnerlotteries(
-        address partneraddress
-    ) external view returns (uint256[] memory lotteryids) {
+    function getPartnerlotteries(address partneraddress)
+        external
+        view
+        returns (uint256[] memory lotteryids)
+    {
         uint256[] memory lotteries = new uint256[](
             partnerlotterydata[partneraddress].length
         );
@@ -862,9 +906,11 @@ contract Autobet is
         tokenAddress = _tokenAddress;
     }
 
-    function getOrglotteries(
-        address useraddress
-    ) external view returns (uint256[] memory lotterids) {
+    function getOrglotteries(address useraddress)
+        external
+        view
+        returns (uint256[] memory lotterids)
+    {
         uint256[] memory lotteries = new uint256[](
             orglotterydata[useraddress].length
         );
@@ -874,9 +920,7 @@ contract Autobet is
         return lotteries;
     }
 
-    function getLotteryNumbers(
-        uint256 lotteryid
-    )
+    function getLotteryNumbers(uint256 lotteryid)
         public
         view
         returns (uint256[] memory tickets, address[] memory useraddress)
@@ -907,9 +951,11 @@ contract Autobet is
         return (userdata, useraddressdata);
     }
 
-    function getMineLotteryNumbers(
-        uint256 lotteryid
-    ) public view returns (uint256[] memory numbers) {
+    function getMineLotteryNumbers(uint256 lotteryid)
+        public
+        view
+        returns (uint256[] memory numbers)
+    {
         uint256[] memory number = new uint256[](minelottery[lotteryid].length);
         uint256 p = 0;
         for (uint256 i = 0; i < minelottery[lotteryid].length; i++) {
@@ -925,7 +971,7 @@ contract Autobet is
     }
 
     function withdrawcommission() external payable {
-        uint256 amount = amountEarned[msg.sender] ;
+        uint256 amount = amountEarned[msg.sender];
         uint256 subtAmt = amount.mul(transferFeePerc).div(100);
         uint256 finalAmount = amount.sub(subtAmt);
         payable(msg.sender).transfer(finalAmount);
@@ -935,12 +981,11 @@ contract Autobet is
     }
 
     function withdrawAdmin() external payable onlyAdmin {
-        uint256 amount = commissionEarned[admin] ;
+        uint256 amount = commissionEarned[admin];
         payable((msg.sender)).transfer(amount);
         commissionEarned[admin] = 0;
-        winnerTax[admin]=0;
-        totalLotteryCreationFees[admin]=0;
-
+        winnerTax[admin] = 0;
+        totalLotteryCreationFees[admin] = 0;
     }
 
     function withdrawrefereecommission() external payable {
