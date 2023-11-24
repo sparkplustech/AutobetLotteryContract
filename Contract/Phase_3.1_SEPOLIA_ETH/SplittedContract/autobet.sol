@@ -501,6 +501,8 @@ contract Autobet is
                 lotteryid,
                 79605497052302279665647778512986110346654820553100948541933326299138325266895
             );
+            emit LotteryResult(msg.sender, LotteryDatas.ownerAddress,lotteryid,block.timestamp,code
+            );
         } else {
             if (block.timestamp > LotteryDates.drawTime) {
                 dorolloverMath(lotteryid);
