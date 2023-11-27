@@ -246,6 +246,8 @@ contract Autobet is
         uint256 date
     );
 
+    event lotRequestIds(uint256 requestId,uint256 lotteryId);
+
 
     constructor(address _tokenAddress, address _autobetUseraddress)
         ConfirmedOwner(msg.sender)
@@ -604,7 +606,9 @@ contract Autobet is
             draw: _draw,
             fulfilled: false
         });
+        emit lotRequestIds(_requestId,_lotteryId);
         return _requestId;
+        
     }
 
     function fulfillRandomWords(

@@ -24,7 +24,7 @@
     "chai-bignumber": "^3.1.0",
     "ethereum-waffle": "^4.0.10",
     "ethers": "^5.0.0",
-    "hardhat": "^2.13.0",
+    "hardhat": "^2.19.1",
     "mocha": "^10.2.0"
   },
   "dependencies": {

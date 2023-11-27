@@ -12,12 +12,13 @@ describe("Token contract", function () {
     const [mark] = await ethers.getSigners();
     console.log(owner.address);
     const AutobetToken = await ethers.getContractFactory("ERC20Token");
-    const Autobet = await AutobetToken.deploy();
-    console.log("AutobetToken:",Autobet.address);
+    const AutobetTokenAddress = '0x2301081Fd0eEE253a33D9d4FE621EDC710157C49'
+    const userAddress = '0xF9dCB02ff6595E5a55bc4cd4412568827df63822'
+    console.log("AutobetToken:",Autobet);
     const ownerBalance = await Autobet.balanceOf(owner.address);
     expect(await Autobet.totalSupply()).to.equal(ownerBalance); 
     const Autobetlottery = await ethers.getContractFactory("Autobet");
-    const Autobetdeploy = await Autobetlottery.deploy(Autobet.address);
+    const Autobetdeploy = await Autobetlottery.deploy(AutobetTokenAddress,userAddress);
 
     console.log("contract address:",Autobetdeploy.address,"owner address:", owner.address) 
   }).timeout(1000000);
