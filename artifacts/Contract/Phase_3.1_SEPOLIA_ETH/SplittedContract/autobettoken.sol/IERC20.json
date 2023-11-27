@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IERC20",
-  "sourceName": "Contract/Phase_3.1_SEPOLIA_ETH/LotteryContract_sepoil_VRFV2.sol",
+  "sourceName": "Contract/Phase_3.1_SEPOLIA_ETH/SplittedContract/autobettoken.sol",
   "abi": [
     {
       "anonymous": false,
@@ -54,10 +54,11 @@
       "type": "event"
     },
     {
+      "constant": true,
       "inputs": [
         {
           "internalType": "address",
-          "name": "owner",
+          "name": "_owner",
           "type": "address"
         },
         {
@@ -74,10 +75,12 @@
           "type": "uint256"
         }
       ],
+      "payable": false,
       "stateMutability": "view",
       "type": "function"
     },
     {
+      "constant": false,
       "inputs": [
         {
           "internalType": "address",
@@ -98,10 +101,12 @@
           "type": "bool"
         }
       ],
+      "payable": false,
       "stateMutability": "nonpayable",
       "type": "function"
     },
     {
+      "constant": true,
       "inputs": [
         {
           "internalType": "address",
@@ -117,10 +122,72 @@
           "type": "uint256"
         }
       ],
+      "payable": false,
       "stateMutability": "view",
       "type": "function"
     },
     {
+      "constant": true,
+      "inputs": [],
+      "name": "decimals",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "getOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "name",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "symbol",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
       "inputs": [],
       "name": "totalSupply",
       "outputs": [
@@ -130,10 +197,12 @@
           "type": "uint256"
         }
       ],
+      "payable": false,
       "stateMutability": "view",
       "type": "function"
     },
     {
+      "constant": false,
       "inputs": [
         {
           "internalType": "address",
@@ -154,10 +223,12 @@
           "type": "bool"
         }
       ],
+      "payable": false,
       "stateMutability": "nonpayable",
       "type": "function"
     },
     {
+      "constant": false,
       "inputs": [
         {
           "internalType": "address",
@@ -183,6 +254,7 @@
           "type": "bool"
         }
       ],
+      "payable": false,
       "stateMutability": "nonpayable",
       "type": "function"
     }

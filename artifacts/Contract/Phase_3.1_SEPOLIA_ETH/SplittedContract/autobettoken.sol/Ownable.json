@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "Ownable",
-  "sourceName": "Contract/Phase_3.1_SEPOLIA_ETH/autobettoken.sol",
+  "sourceName": "Contract/Phase_3.1_SEPOLIA_ETH/SplittedContract/autobettoken.sol",
   "abi": [
     {
       "inputs": [],

@@ -6,12 +6,13 @@
       "contentHash": "c962c53a75d722542c83859d848edd5b",
       "sourceName": "@chainlink/contracts/src/v0.8/AutomationCompatible.sol",
       "solcConfig": {
-        "version": "0.8.7",
+        "version": "0.8.22",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 1337
+            "runs": 200
           },
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -82,12 +83,13 @@
       "contentHash": "80067f44d8bddd615599f8d73b9726a5",
       "sourceName": "@chainlink/contracts/src/v0.8/AutomationBase.sol",
       "solcConfig": {
-        "version": "0.8.7",
+        "version": "0.8.22",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 1337
+            "runs": 200
           },
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -117,12 +119,13 @@
       "contentHash": "c52969cee392918edbf23f914e01c0dc",
       "sourceName": "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol",
       "solcConfig": {
-        "version": "0.8.7",
+        "version": "0.8.22",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 1337
+            "runs": 200
           },
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -152,12 +155,13 @@
       "contentHash": "da5a0c3bd86c896f6a407f909c57edf3",
       "sourceName": "@chainlink/contracts/src/v0.8/interfaces/LinkTokenInterface.sol",
       "solcConfig": {
-        "version": "0.8.7",
+        "version": "0.8.22",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 1337
+            "runs": 200
           },
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -222,12 +226,13 @@
       "contentHash": "16d64572b0310127fc8a771e63be6d20",
       "sourceName": "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol",
       "solcConfig": {
-        "version": "0.8.7",
+        "version": "0.8.22",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 1337
+            "runs": 200
           },
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -259,12 +264,13 @@
       "contentHash": "00e3a6c5eaacf1329b672e52ad14e095",
       "sourceName": "@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol",
       "solcConfig": {
-        "version": "0.8.7",
+        "version": "0.8.22",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 1337
+            "runs": 200
           },
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -297,12 +303,13 @@
       "contentHash": "8b1c5f02622cd87472493bda6595d1be",
       "sourceName": "@chainlink/contracts/src/v0.8/ConfirmedOwnerWithProposal.sol",
       "solcConfig": {
-        "version": "0.8.7",
+        "version": "0.8.22",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 1337
+            "runs": 200
           },
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -334,12 +341,13 @@
       "contentHash": "2e814c8a9f77897f6995436d97c23d99",
       "sourceName": "@chainlink/contracts/src/v0.8/interfaces/OwnableInterface.sol",
       "solcConfig": {
-        "version": "0.8.7",
+        "version": "0.8.22",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 1337
+            "runs": 200
           },
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -369,12 +377,13 @@
       "contentHash": "6848d0e769b460011d3edf1a2047cc51",
       "sourceName": "@chainlink/contracts/src/v0.8/interfaces/VRFV2WrapperInterface.sol",
       "solcConfig": {
-        "version": "0.8.7",
+        "version": "0.8.22",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 1337
+            "runs": 200
           },
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -399,10 +408,200 @@
         "VRFV2WrapperInterface"
       ]
     },
-    "C:\\Users\\ashut\\OneDrive\\Documents\\Sparkplus\\Autobet-lottery contract\\AutobetLotteryContract\\Contract\\Phase_3.1_SEPOLIA_ETH\\autobettoken.sol": {
-      "lastModificationDate": 1681196789883,
+    "C:\\Users\\ashut\\OneDrive\\Documents\\Sparkplus\\Autobet-lottery contract\\AutobetLotteryContract\\Contract\\Phase_3.1_SEPOLIA_ETH\\SplittedContract\\autobet.sol": {
+      "lastModificationDate": 1701070645277,
+      "contentHash": "495c2ad44fb349c0b110749e918f7a74",
+      "sourceName": "Contract/Phase_3.1_SEPOLIA_ETH/SplittedContract/autobet.sol",
+      "solcConfig": {
+        "version": "0.8.22",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/utils/math/SafeMath.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol",
+        "@chainlink/contracts/src/v0.8/AutomationCompatible.sol",
+        "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol",
+        "@openzeppelin/contracts/utils/Strings.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.7"
+      ],
+      "artifacts": [
+        "Autobet",
+        "IABUser"
+      ]
+    },
+    "C:\\Users\\ashut\\OneDrive\\Documents\\Sparkplus\\Autobet-lottery contract\\AutobetLotteryContract\\node_modules\\@openzeppelin\\contracts\\utils\\Strings.sol": {
+      "lastModificationDate": 1680853426284,
+      "contentHash": "62142442bed149f965c5ed971fae4182",
+      "sourceName": "@openzeppelin/contracts/utils/Strings.sol",
+      "solcConfig": {
+        "version": "0.8.22",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "Strings"
+      ]
+    },
+    "C:\\Users\\ashut\\OneDrive\\Documents\\Sparkplus\\Autobet-lottery contract\\AutobetLotteryContract\\node_modules\\@openzeppelin\\contracts\\utils\\math\\SafeMath.sol": {
+      "lastModificationDate": 1680853426194,
+      "contentHash": "5365090efc586b728719e562ebfed0d6",
+      "sourceName": "@openzeppelin/contracts/utils/math/SafeMath.sol",
+      "solcConfig": {
+        "version": "0.8.22",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "SafeMath"
+      ]
+    },
+    "C:\\Users\\ashut\\OneDrive\\Documents\\Sparkplus\\Autobet-lottery contract\\AutobetLotteryContract\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\IERC20.sol": {
+      "lastModificationDate": 1680853425594,
+      "contentHash": "0eac3e1a83ee62326ca007811285b274",
+      "sourceName": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+      "solcConfig": {
+        "version": "0.8.22",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC20"
+      ]
+    },
+    "C:\\Users\\ashut\\OneDrive\\Documents\\Sparkplus\\Autobet-lottery contract\\AutobetLotteryContract\\Contract\\Phase_3.1_SEPOLIA_ETH\\SplittedContract\\autobetUser.sol": {
+      "lastModificationDate": 1701067914319,
+      "contentHash": "55de08ec5716d0f202cb014d46aaa126",
+      "sourceName": "Contract/Phase_3.1_SEPOLIA_ETH/SplittedContract/autobetUser.sol",
+      "solcConfig": {
+        "version": "0.8.22",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/utils/math/SafeMath.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.7"
+      ],
+      "artifacts": [
+        "autobetUser"
+      ]
+    },
+    "C:\\Users\\ashut\\OneDrive\\Documents\\Sparkplus\\Autobet-lottery contract\\AutobetLotteryContract\\Contract\\Phase_3.1_SEPOLIA_ETH\\SplittedContract\\autobettoken.sol": {
+      "lastModificationDate": 1701072418463,
       "contentHash": "a195dee27ca9244675aba01bc9e4f504",
-      "sourceName": "Contract/Phase_3.1_SEPOLIA_ETH/autobettoken.sol",
+      "sourceName": "Contract/Phase_3.1_SEPOLIA_ETH/SplittedContract/autobettoken.sol",
       "solcConfig": {
         "version": "0.5.16",
         "settings": {
@@ -435,47 +634,6 @@
         "ERC20Token",
         "IERC20",
         "Ownable",
-        "SafeMath"
-      ]
-    },
-    "C:\\Users\\ashut\\OneDrive\\Documents\\Sparkplus\\Autobet-lottery contract\\AutobetLotteryContract\\Contract\\Phase_3.1_SEPOLIA_ETH\\LotteryContract_sepoil_VRFV2.sol": {
-      "lastModificationDate": 1682744952236,
-      "contentHash": "77a5e158b6ae74f4fa190eaade0dbcc6",
-      "sourceName": "Contract/Phase_3.1_SEPOLIA_ETH/LotteryContract_sepoil_VRFV2.sol",
-      "solcConfig": {
-        "version": "0.8.7",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 1337
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol",
-        "@chainlink/contracts/src/v0.8/AutomationCompatible.sol",
-        "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.7"
-      ],
-      "artifacts": [
-        "Autobet",
-        "IERC20",
         "SafeMath"
       ]
     }

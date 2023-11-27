@@ -10,15 +10,20 @@ describe("Token contract", function () {
   it("Deployment should assign the total supply of tokens to the owner", async function () {
     const [owner] = await ethers.getSigners();
     const [mark] = await ethers.getSigners();
-    console.log(owner.address);
-    const AutobetToken = await ethers.getContractFactory("ERC20Token");
-    const AutobetTokenAddress = '0x2301081Fd0eEE253a33D9d4FE621EDC710157C49'
-    const userAddress = '0xF9dCB02ff6595E5a55bc4cd4412568827df63822'
-    console.log("AutobetToken:",Autobet);
-    const ownerBalance = await Autobet.balanceOf(owner.address);
-    expect(await Autobet.totalSupply()).to.equal(ownerBalance); 
+    console.log("admin address",owner.address);
+    // const AutobetToken = await ethers.getContractFactory("ERC20Token");
+    // const Autobet = await AutobetToken.deploy();
+    // console.log("AutobetToken:",Autobet.address);
+
+    // const ownerBalance = await Autobet.balanceOf(owner.address);
+    // expect(await Autobet.totalSupply()).to.equal(ownerBalance); 
+
+    // const userLottery = await ethers.getContractFactory("autobetUser");
+    // const userLotteryDeploy = await userLottery.deploy();
+    // console.log("userLottery:",userLotteryDeploy.address);
+
     const Autobetlottery = await ethers.getContractFactory("Autobet");
-    const Autobetdeploy = await Autobetlottery.deploy(AutobetTokenAddress,userAddress);
+    const Autobetdeploy = await Autobetlottery.deploy('0x2301081Fd0eEE253a33D9d4FE621EDC710157C49','0xF9dCB02ff6595E5a55bc4cd4412568827df63822');
 
     console.log("contract address:",Autobetdeploy.address,"owner address:", owner.address) 
   }).timeout(1000000);

@@ -4,12 +4,9 @@ require("@nomiclabs/hardhat-etherscan");
 module.exports = {
   defaultNetwork: "sepolia",
   paths: {
-    sources: './Contract/Phase_3.1_SEPOLIA_ETH',
+    sources: './Contract/Phase_3.1_SEPOLIA_ETH/SplittedContract',
   },
   networks: {
-    hardhat: {
-    },
-    
     sepolia: {
       url: "https://sepolia.infura.io/v3/5686b17f6f234085b42a3c455e4244bd",
 
@@ -25,17 +22,18 @@ module.exports = {
   gas: 3000000,
     }
   },
-  etherscan:{
-    apiKey: "876f953c246b466797e0c769427e78bd",
-
-  },
+  etherscan: {
+    apiKey:{
+      sepolia:"5686b17f6f234085b42a3c455e4244bd",
+  } 
+},
   solidity: {
     
     compilers:[
-      {version: "0.8.18",settings: {
+      {version: "0.8.22",settings: {
         optimizer: {
           enabled: true,
-          runs: 1337,
+          runs: 200,
           
         }}},
       {version: "0.5.16"}
@@ -43,7 +41,7 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 1337,
+        runs: 200,
       },
     },
   },
