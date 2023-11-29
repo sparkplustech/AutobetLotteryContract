@@ -248,7 +248,7 @@ contract Autobet is
 
     event lotRequestIds(uint256 requestId,uint256 lotteryId);
 
-
+event Received(address sender, uint value);
     constructor(address _tokenAddress, address _autobetUseraddress)
         ConfirmedOwner(msg.sender)
         VRFV2WrapperConsumerBase(
@@ -1009,6 +1009,10 @@ contract Autobet is
             LINK.transfer(msg.sender, LINK.balanceOf(address(this))),
             "Unable to transfer"
         );
+    }
+
+     receive() external payable {
+        emit Received(msg.sender, msg.value);
     }
 
     function updateFee(
