@@ -1,11 +1,700 @@
-pragma solidity ^0.8.7;
 // SPDX-License-Identifier: Unlicensed
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
-import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
-import "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
+
+// File: @openzeppelin/contracts/utils/math/Math.sol
+
+pragma solidity ^0.8.0;
+
+library Math {
+    enum Rounding {
+        Down,
+        Up,
+        Zero
+    }
+
+    function max(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a > b ? a : b;
+    }
+
+    function min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
+    }
+
+    function average(uint256 a, uint256 b) internal pure returns (uint256) {
+        return (a & b) + (a ^ b) / 2;
+    }
+
+    function ceilDiv(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a == 0 ? 0 : (a - 1) / b + 1;
+    }
+
+    function mulDiv(
+        uint256 x,
+        uint256 y,
+        uint256 denominator
+    ) internal pure returns (uint256 result) {
+        unchecked {
+            uint256 prod0;
+            uint256 prod1;
+            assembly {
+                let mm := mulmod(x, y, not(0))
+                prod0 := mul(x, y)
+                prod1 := sub(sub(mm, prod0), lt(mm, prod0))
+            }
+
+            if (prod1 == 0) {
+                return prod0 / denominator;
+            }
+
+            require(denominator > prod1);
+
+            uint256 remainder;
+            assembly {
+                remainder := mulmod(x, y, denominator)
+                prod1 := sub(prod1, gt(remainder, prod0))
+                prod0 := sub(prod0, remainder)
+            }
+
+            uint256 twos = denominator & (~denominator + 1);
+            assembly {
+                denominator := div(denominator, twos)
+                prod0 := div(prod0, twos)
+                twos := add(div(sub(0, twos), twos), 1)
+            }
+            prod0 |= prod1 * twos;
+            uint256 inverse = (3 * denominator) ^ 2;
+            inverse *= 2 - denominator * inverse;
+            inverse *= 2 - denominator * inverse;
+            inverse *= 2 - denominator * inverse;
+            inverse *= 2 - denominator * inverse;
+            inverse *= 2 - denominator * inverse;
+            inverse *= 2 - denominator * inverse;
+            result = prod0 * inverse;
+            return result;
+        }
+    }
+
+    function mulDiv(
+        uint256 x,
+        uint256 y,
+        uint256 denominator,
+        Rounding rounding
+    ) internal pure returns (uint256) {
+        uint256 result = mulDiv(x, y, denominator);
+        if (rounding == Rounding.Up && mulmod(x, y, denominator) > 0) {
+            result += 1;
+        }
+        return result;
+    }
+
+    function sqrt(uint256 a) internal pure returns (uint256) {
+        if (a == 0) {
+            return 0;
+        }
+
+        uint256 result = 1 << (log2(a) >> 1);
+
+        unchecked {
+            result = (result + a / result) >> 1;
+            result = (result + a / result) >> 1;
+            result = (result + a / result) >> 1;
+            result = (result + a / result) >> 1;
+            result = (result + a / result) >> 1;
+            result = (result + a / result) >> 1;
+            result = (result + a / result) >> 1;
+            return min(result, a / result);
+        }
+    }
+
+    function sqrt(uint256 a, Rounding rounding)
+        internal
+        pure
+        returns (uint256)
+    {
+        unchecked {
+            uint256 result = sqrt(a);
+            return
+                result +
+                (rounding == Rounding.Up && result * result < a ? 1 : 0);
+        }
+    }
+
+    function log2(uint256 value) internal pure returns (uint256) {
+        uint256 result = 0;
+        unchecked {
+            if (value >> 128 > 0) {
+                value >>= 128;
+                result += 128;
+            }
+            if (value >> 64 > 0) {
+                value >>= 64;
+                result += 64;
+            }
+            if (value >> 32 > 0) {
+                value >>= 32;
+                result += 32;
+            }
+            if (value >> 16 > 0) {
+                value >>= 16;
+                result += 16;
+            }
+            if (value >> 8 > 0) {
+                value >>= 8;
+                result += 8;
+            }
+            if (value >> 4 > 0) {
+                value >>= 4;
+                result += 4;
+            }
+            if (value >> 2 > 0) {
+                value >>= 2;
+                result += 2;
+            }
+            if (value >> 1 > 0) {
+                result += 1;
+            }
+        }
+        return result;
+    }
+
+    function log2(uint256 value, Rounding rounding)
+        internal
+        pure
+        returns (uint256)
+    {
+        unchecked {
+            uint256 result = log2(value);
+            return
+                result +
+                (rounding == Rounding.Up && 1 << result < value ? 1 : 0);
+        }
+    }
+
+    function log10(uint256 value) internal pure returns (uint256) {
+        uint256 result = 0;
+        unchecked {
+            if (value >= 10**64) {
+                value /= 10**64;
+                result += 64;
+            }
+            if (value >= 10**32) {
+                value /= 10**32;
+                result += 32;
+            }
+            if (value >= 10**16) {
+                value /= 10**16;
+                result += 16;
+            }
+            if (value >= 10**8) {
+                value /= 10**8;
+                result += 8;
+            }
+            if (value >= 10**4) {
+                value /= 10**4;
+                result += 4;
+            }
+            if (value >= 10**2) {
+                value /= 10**2;
+                result += 2;
+            }
+            if (value >= 10**1) {
+                result += 1;
+            }
+        }
+        return result;
+    }
+
+    function log10(uint256 value, Rounding rounding)
+        internal
+        pure
+        returns (uint256)
+    {
+        unchecked {
+            uint256 result = log10(value);
+            return
+                result +
+                (rounding == Rounding.Up && 10**result < value ? 1 : 0);
+        }
+    }
+
+    function log256(uint256 value) internal pure returns (uint256) {
+        uint256 result = 0;
+        unchecked {
+            if (value >> 128 > 0) {
+                value >>= 128;
+                result += 16;
+            }
+            if (value >> 64 > 0) {
+                value >>= 64;
+                result += 8;
+            }
+            if (value >> 32 > 0) {
+                value >>= 32;
+                result += 4;
+            }
+            if (value >> 16 > 0) {
+                value >>= 16;
+                result += 2;
+            }
+            if (value >> 8 > 0) {
+                result += 1;
+            }
+        }
+        return result;
+    }
+
+    function log256(uint256 value, Rounding rounding)
+        internal
+        pure
+        returns (uint256)
+    {
+        unchecked {
+            uint256 result = log256(value);
+            return
+                result +
+                (rounding == Rounding.Up && 1 << (result * 8) < value ? 1 : 0);
+        }
+    }
+}
+
+// File: @openzeppelin/contracts/utils/Strings.sol
+// OpenZeppelin Contracts (last updated v4.8.0) (utils/Strings.sol)
+
+pragma solidity ^0.8.0;
+
+library Strings {
+    bytes16 private constant _SYMBOLS = "0123456789abcdef";
+    uint8 private constant _ADDRESS_LENGTH = 20;
+
+    function toString(uint256 value) internal pure returns (string memory) {
+        unchecked {
+            uint256 length = Math.log10(value) + 1;
+            string memory buffer = new string(length);
+            uint256 ptr;
+            assembly {
+                ptr := add(buffer, add(32, length))
+            }
+            while (true) {
+                ptr--;
+                assembly {
+                    mstore8(ptr, byte(mod(value, 10), _SYMBOLS))
+                }
+                value /= 10;
+                if (value == 0) break;
+            }
+            return buffer;
+        }
+    }
+
+    function toHexString(uint256 value) internal pure returns (string memory) {
+        unchecked {
+            return toHexString(value, Math.log256(value) + 1);
+        }
+    }
+
+    function toHexString(uint256 value, uint256 length)
+        internal
+        pure
+        returns (string memory)
+    {
+        bytes memory buffer = new bytes(2 * length + 2);
+        buffer[0] = "0";
+        buffer[1] = "x";
+        for (uint256 i = 2 * length + 1; i > 1; --i) {
+            buffer[i] = _SYMBOLS[value & 0xf];
+            value >>= 4;
+        }
+        require(value == 0, "Strings: hex length insufficient");
+        return string(buffer);
+    }
+
+    function toHexString(address addr) internal pure returns (string memory) {
+        return toHexString(uint256(uint160(addr)), _ADDRESS_LENGTH);
+    }
+}
+
+// File: @chainlink/contracts/src/v0.8/interfaces/OwnableInterface.sol
+
+pragma solidity ^0.8.0;
+
+interface OwnableInterface {
+    function owner() external returns (address);
+
+    function transferOwnership(address recipient) external;
+
+    function acceptOwnership() external;
+}
+
+// File: @chainlink/contracts/src/v0.8/ConfirmedOwnerWithProposal.sol
+
+pragma solidity ^0.8.0;
+
+contract ConfirmedOwnerWithProposal is OwnableInterface {
+    address private s_owner;
+    address private s_pendingOwner;
+
+    event OwnershipTransferRequested(address indexed from, address indexed to);
+    event OwnershipTransferred(address indexed from, address indexed to);
+
+    constructor(address newOwner, address pendingOwner) {
+        require(newOwner != address(0), "Cannot set owner to zero");
+
+        s_owner = newOwner;
+        if (pendingOwner != address(0)) {
+            _transferOwnership(pendingOwner);
+        }
+    }
+
+    function transferOwnership(address to) public override onlyOwner {
+        _transferOwnership(to);
+    }
+
+    function acceptOwnership() external override {
+        require(msg.sender == s_pendingOwner, "Must be proposed owner");
+
+        address oldOwner = s_owner;
+        s_owner = msg.sender;
+        s_pendingOwner = address(0);
+
+        emit OwnershipTransferred(oldOwner, msg.sender);
+    }
+
+    function owner() public view override returns (address) {
+        return s_owner;
+    }
+
+    function _transferOwnership(address to) private {
+        require(to != msg.sender, "Cannot transfer to self");
+
+        s_pendingOwner = to;
+
+        emit OwnershipTransferRequested(s_owner, to);
+    }
+
+    function _validateOwnership() internal view {
+        require(msg.sender == s_owner, "Only callable by owner");
+    }
+
+    modifier onlyOwner() {
+        _validateOwnership();
+        _;
+    }
+}
+
+// File: @chainlink/contracts/src/v0.8/ConfirmedOwner.sol
+
+pragma solidity ^0.8.0;
+
+contract ConfirmedOwner is ConfirmedOwnerWithProposal {
+    constructor(address newOwner)
+        ConfirmedOwnerWithProposal(newOwner, address(0))
+    {}
+}
+
+// File: @chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol
+
+pragma solidity ^0.8.0;
+
+interface AutomationCompatibleInterface {
+    function checkUpkeep(bytes calldata checkData)
+        external
+        returns (bool upkeepNeeded, bytes memory performData);
+
+    function performUpkeep(bytes calldata performData) external;
+}
+
+// File: @chainlink/contracts/src/v0.8/AutomationBase.sol
+
+pragma solidity ^0.8.0;
+
+contract AutomationBase {
+    error OnlySimulatedBackend();
+
+    function preventExecution() internal view {
+        if (tx.origin != address(0)) {
+            revert OnlySimulatedBackend();
+        }
+    }
+
+    modifier cannotExecute() {
+        preventExecution();
+        _;
+    }
+}
+
+// File: @chainlink/contracts/src/v0.8/AutomationCompatible.sol
+
+pragma solidity ^0.8.0;
+
+abstract contract AutomationCompatible is
+    AutomationBase,
+    AutomationCompatibleInterface
+{}
+
+// File: @chainlink/contracts/src/v0.8/interfaces/VRFV2WrapperInterface.sol
+
+pragma solidity ^0.8.0;
+
+interface VRFV2WrapperInterface {
+    function lastRequestId() external view returns (uint256);
+
+    function calculateRequestPrice(uint32 _callbackGasLimit)
+        external
+        view
+        returns (uint256);
+
+    function estimateRequestPrice(
+        uint32 _callbackGasLimit,
+        uint256 _requestGasPriceWei
+    ) external view returns (uint256);
+}
+
+// File: @chainlink/contracts/src/v0.8/interfaces/LinkTokenInterface.sol
+
+pragma solidity ^0.8.0;
+
+interface LinkTokenInterface {
+    function allowance(address owner, address spender)
+        external
+        view
+        returns (uint256 remaining);
+
+    function approve(address spender, uint256 value)
+        external
+        returns (bool success);
+
+    function balanceOf(address owner) external view returns (uint256 balance);
+
+    function decimals() external view returns (uint8 decimalPlaces);
+
+    function decreaseApproval(address spender, uint256 addedValue)
+        external
+        returns (bool success);
+
+    function increaseApproval(address spender, uint256 subtractedValue)
+        external;
+
+    function name() external view returns (string memory tokenName);
+
+    function symbol() external view returns (string memory tokenSymbol);
+
+    function totalSupply() external view returns (uint256 totalTokensIssued);
+
+    function transfer(address to, uint256 value)
+        external
+        returns (bool success);
+
+    function transferAndCall(
+        address to,
+        uint256 value,
+        bytes calldata data
+    ) external returns (bool success);
+
+    function transferFrom(
+        address from,
+        address to,
+        uint256 value
+    ) external returns (bool success);
+}
+
+// File: @chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol
+
+pragma solidity ^0.8.0;
+
+abstract contract VRFV2WrapperConsumerBase {
+    LinkTokenInterface internal immutable LINK;
+    VRFV2WrapperInterface internal immutable VRF_V2_WRAPPER;
+
+    constructor(address _link, address _vrfV2Wrapper) {
+        LINK = LinkTokenInterface(_link);
+        VRF_V2_WRAPPER = VRFV2WrapperInterface(_vrfV2Wrapper);
+    }
+
+    function requestRandomness(
+        uint32 _callbackGasLimit,
+        uint16 _requestConfirmations,
+        uint32 _numWords
+    ) internal returns (uint256 requestId) {
+        LINK.transferAndCall(
+            address(VRF_V2_WRAPPER),
+            VRF_V2_WRAPPER.calculateRequestPrice(_callbackGasLimit),
+            abi.encode(_callbackGasLimit, _requestConfirmations, _numWords)
+        );
+        return VRF_V2_WRAPPER.lastRequestId();
+    }
+
+    function fulfillRandomWords(
+        uint256 _requestId,
+        uint256[] memory _randomWords
+    ) internal virtual;
+
+    function rawFulfillRandomWords(
+        uint256 _requestId,
+        uint256[] memory _randomWords
+    ) external {
+        require(
+            msg.sender == address(VRF_V2_WRAPPER),
+            "only VRF V2 wrapper can fulfill"
+        );
+        fulfillRandomWords(_requestId, _randomWords);
+    }
+}
+
+// File: @openzeppelin/contracts/token/ERC20/IERC20.sol
+
+// OpenZeppelin Contracts (last updated v4.6.0) (token/ERC20/IERC20.sol)
+
+pragma solidity ^0.8.0;
+
+interface IERC20 {
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 value
+    );
+
+    function totalSupply() external view returns (uint256);
+
+    function balanceOf(address account) external view returns (uint256);
+
+    function transfer(address to, uint256 amount) external returns (bool);
+
+    function allowance(address owner, address spender)
+        external
+        view
+        returns (uint256);
+
+    function approve(address spender, uint256 amount) external returns (bool);
+
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) external returns (bool);
+}
+
+// File: @openzeppelin/contracts/utils/math/SafeMath.sol
+
+// OpenZeppelin Contracts (last updated v4.6.0) (utils/math/SafeMath.sol)
+
+pragma solidity ^0.8.0;
+
+library SafeMath {
+    function tryAdd(uint256 a, uint256 b)
+        internal
+        pure
+        returns (bool, uint256)
+    {
+        unchecked {
+            uint256 c = a + b;
+            if (c < a) return (false, 0);
+            return (true, c);
+        }
+    }
+
+    function trySub(uint256 a, uint256 b)
+        internal
+        pure
+        returns (bool, uint256)
+    {
+        unchecked {
+            if (b > a) return (false, 0);
+            return (true, a - b);
+        }
+    }
+
+    function tryMul(uint256 a, uint256 b)
+        internal
+        pure
+        returns (bool, uint256)
+    {
+        unchecked {
+            if (a == 0) return (true, 0);
+            uint256 c = a * b;
+            if (c / a != b) return (false, 0);
+            return (true, c);
+        }
+    }
+
+    function tryDiv(uint256 a, uint256 b)
+        internal
+        pure
+        returns (bool, uint256)
+    {
+        unchecked {
+            if (b == 0) return (false, 0);
+            return (true, a / b);
+        }
+    }
+
+    function tryMod(uint256 a, uint256 b)
+        internal
+        pure
+        returns (bool, uint256)
+    {
+        unchecked {
+            if (b == 0) return (false, 0);
+            return (true, a % b);
+        }
+    }
+
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a + b;
+    }
+
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a - b;
+    }
+
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a * b;
+    }
+
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a / b;
+    }
+
+    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a % b;
+    }
+
+    function sub(
+        uint256 a,
+        uint256 b,
+        string memory errorMessage
+    ) internal pure returns (uint256) {
+        unchecked {
+            require(b <= a, errorMessage);
+            return a - b;
+        }
+    }
+
+    function div(
+        uint256 a,
+        uint256 b,
+        string memory errorMessage
+    ) internal pure returns (uint256) {
+        unchecked {
+            require(b > 0, errorMessage);
+            return a / b;
+        }
+    }
+
+    function mod(
+        uint256 a,
+        uint256 b,
+        string memory errorMessage
+    ) internal pure returns (uint256) {
+        unchecked {
+            require(b > 0, errorMessage);
+            return a % b;
+        }
+    }
+}
+
+// File: autobet.sol
+
+pragma solidity ^0.8.7;
 
 interface IABUser {
     function isCreator(address) external view returns (bool);
@@ -32,9 +721,7 @@ contract Autobet is
 {
     using SafeMath for uint256;
     uint256 public lotteryId = 1;
-    // uint256 public ownerId = 1;
     uint256 public partnerId = 0;
-    // uint256 public bregisterFee = 10;
     uint256 public lotteryCreateFee = 10;
     uint256 public transferFeePerc = 10;
     uint256 public minimumRollover = 100;
@@ -246,14 +933,14 @@ contract Autobet is
         uint256 date
     );
 
-    event lotRequestIds(uint256 requestId,uint256 lotteryId);
+    event lotRequestIds(uint256 requestId, uint256 lotteryId);
+    event Received(address sender, uint256 value);
 
-event Received(address sender, uint value);
     constructor(address _tokenAddress, address _autobetUseraddress)
         ConfirmedOwner(msg.sender)
         VRFV2WrapperConsumerBase(
-            0x779877A7B0D9E8603169DdbD7836e478b4624789, // LINK Token
-            0xab18414CD93297B0d12ac29E63Ca20f515b3DB46
+            0x514910771AF9Ca656af840dff83E8264EcF986CA, // LINK Token
+            0x5A861794B927983406fCE1D062e00b9368d97Df6
         )
     {
         autobetUseraddress = _autobetUseraddress;
@@ -503,7 +1190,12 @@ event Received(address sender, uint value);
                 lotteryid,
                 79605497052302279665647778512986110346654820553100948541933326299138325266895
             );
-            emit LotteryResult(msg.sender, LotteryDatas.ownerAddress,lotteryid,block.timestamp,code
+            emit LotteryResult(
+                msg.sender,
+                LotteryDatas.ownerAddress,
+                lotteryid,
+                block.timestamp,
+                code
             );
         } else {
             if (block.timestamp > LotteryDates.drawTime) {
@@ -606,9 +1298,8 @@ event Received(address sender, uint value);
             draw: _draw,
             fulfilled: false
         });
-        emit lotRequestIds(_requestId,_lotteryId);
+        emit lotRequestIds(_requestId, _lotteryId);
         return _requestId;
-        
     }
 
     function fulfillRandomWords(
@@ -1011,7 +1702,7 @@ event Received(address sender, uint value);
         );
     }
 
-     receive() external payable {
+    receive() external payable {
         emit Received(msg.sender, msg.value);
     }
 
